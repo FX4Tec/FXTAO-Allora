@@ -1,0 +1,371 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  admin
+  director
+  user
+}
+
+enum TaoStatus {
+  start
+  step1 @map("1")
+  step2 @map("2")
+  step3 @map("3")
+  step4 @map("4")
+  step5 @map("5")
+}
+
+enum ApprovalStatus {
+  draft
+  pending
+  approved
+  rejected
+}
+
+enum CalculationMode {
+  manual
+  auto
+}
+
+enum InstallmentType {
+  direct
+  consultancy
+  construction
+}
+
+enum ApprovalScope {
+  tao
+  additive
+  both
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
+enum ActionType {
+  create
+  update
+  delete
+  approve
+  reject
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password_hash String?
+  full_name     String?
+  role          Role      @default(user)
+  auth_provider String    @default("local") // 'local' or 'microsoft'
+  sso_id        String?   // ID from Microsoft Graph
+  avatar_url    String?
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relations
+  taos_created      Tao[]              @relation("TaoCreator")
+  approval_history  TaoApprovalHistory[]
+  logs_performed    TaoLog[]           @relation("UserLogs") // Logs where user PERFORMED the action
+  notifications     Notification[]
+  approver_configs  TaoApprover[]
+
+  @@map("users")
+}
+
+model Tao {
+  id                           String          @id @default(uuid())
+  created_by_id                String
+  created_by                   User            @relation("TaoCreator", fields: [created_by_id], references: [id])
+  project_name                 String
+  segment                      String?         // 'Residencial', 'Comercial', etc.
+  project_type                 String?         // 'Construção Nova', 'Reforma', etc.
+  status                       TaoStatus       @default(start)
+  approval_status              ApprovalStatus  @default(draft)
+  current_approval_level       Int             @default(0)
+  calculation_mode             CalculationMode @default(manual)
+  erp_number                   String?
+  area_m2                      Decimal?        @db.Decimal(10, 2)
+  latitude                     Decimal?        @db.Decimal(9, 6)
+  longitude                    Decimal?        @db.Decimal(9, 6)
+  contract_company_consultancy Boolean         @default(false)
+  hiring_regime                String?
+  contract_description         String?         @db.Text
+  sharepoint_url               String?
+  observations_general         String?         @db.Text
+  
+  // Dates
+  date_signature    DateTime? @db.Date
+  date_mobilization DateTime? @db.Date
+  date_start        DateTime? @db.Date
+  date_end          DateTime? @db.Date
+
+  // Billing Address
+  billing_company_name    String?
+  billing_address         String?
+  billing_zip             String?
+  billing_neighborhood    String?
+  billing_city            String?
+  billing_state           String?
+  billing_cnpj            String?
+  billing_ie              String?
+  billing_im              String?
+  billing_drm             String?
+  billing_not_established Boolean  @default(false)
+  
+  // Construction Address
+  construction_address       String?
+  construction_zip           String?
+  construction_neighborhood  String?
+  construction_city          String?
+  construction_state         String?
+  
+  // Manager Info
+  manager_company_name    String?
+  manager_address         String?
+  manager_phone           String?
+
+  // Bank Accounts
+  bank_account_consultancy_id   String?
+  bank_account_construction_id  String?
+  
+  // Financial Values
+  value_total_contract       Decimal? @db.Decimal(15, 2)
+  value_billing_direct       Decimal? @db.Decimal(15, 2)
+  value_billing_consultancy  Decimal? @db.Decimal(15, 2)
+  value_billing_construction Decimal? @db.Decimal(15, 2)
+  value_team_technical       Decimal? @db.Decimal(15, 2)
+  value_cost_construction    Decimal? @db.Decimal(15, 2)
+  value_taxes                Decimal? @db.Decimal(15, 2)
+  value_b_revenue            Decimal? @db.Decimal(15, 2)
+  value_rateable_1           Decimal? @db.Decimal(15, 2)
+  value_rateable_2           Decimal? @db.Decimal(15, 2)
+
+  // Taxes - Original (PIS, COFINS, CSLL, IR)
+  tax_pis_percent     Decimal? @db.Decimal(5, 2)
+  tax_pis_value       Decimal? @db.Decimal(15, 2)
+  tax_cofins_percent  Decimal? @db.Decimal(5, 2)
+  tax_cofins_value    Decimal? @db.Decimal(15, 2)
+  tax_csll_percent    Decimal? @db.Decimal(5, 2)
+  tax_csll_value      Decimal? @db.Decimal(15, 2)
+  tax_ir_percent      Decimal? @db.Decimal(5, 2)
+  tax_ir_value        Decimal? @db.Decimal(15, 2)
+
+  // Taxes - ISS (retained by client + collected by company)
+  tax_iss_percent                    Decimal? @db.Decimal(5, 2)
+  tax_iss_value                      Decimal? @db.Decimal(15, 2)
+  tax_iss_retained_client_percent    Decimal? @db.Decimal(5, 2)
+  tax_iss_retained_client_value      Decimal? @db.Decimal(15, 2)
+  tax_iss_collected_company_percent  Decimal? @db.Decimal(5, 2)
+  tax_iss_collected_company_value    Decimal? @db.Decimal(15, 2)
+
+  // Taxes - INSS (retained by client + collected by company)
+  tax_inss_percent                    Decimal? @db.Decimal(5, 2)
+  tax_inss_value                      Decimal? @db.Decimal(15, 2)
+  tax_inss_retained_client_percent    Decimal? @db.Decimal(5, 2)
+  tax_inss_retained_client_value      Decimal? @db.Decimal(15, 2)
+  tax_inss_collected_company_percent  Decimal? @db.Decimal(5, 2)
+  tax_inss_collected_company_value    Decimal? @db.Decimal(15, 2)
+
+  // Taxes - COFINS retained + deductions + contractual retention
+  tax_cofins_retained_client_percent    Decimal? @db.Decimal(5, 2)
+  tax_cofins_retained_client_value      Decimal? @db.Decimal(15, 2)
+  tax_deduction_signal_percent          Decimal? @db.Decimal(5, 2)
+  tax_deduction_signal_value            Decimal? @db.Decimal(15, 2)
+  tax_contractual_retention_percent     Decimal? @db.Decimal(5, 2)
+  tax_contractual_retention_value       Decimal? @db.Decimal(15, 2)
+
+  // OME (Ordem de Mudança de Engenharia)
+  ome_procedure       String?  @db.Text
+  ome_billing_company Boolean  @default(false)
+
+  // Contract Text Fields (Step 4)
+  obligations_text  String? @db.Text
+  fines_text        String? @db.Text
+  measurements_text String? @db.Text
+  
+  // Scope / Docs
+  scope_project_legal_status Boolean @default(false)
+  scope_project_legal_text   String? @db.Text
+  avcb_status                Boolean @default(false)
+  avcb_text                  String? @db.Text
+  habite_se_status           Boolean @default(false)
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relations
+  installments  TaoInstallment[]
+  additives     TaoAdditive[]
+  team_members  TaoTeamMember[]
+  contacts      TaoContact[]
+  attachments   TaoAttachment[]
+  approvers     TaoApprover[]
+  logs          TaoLog[]
+
+  @@map("taos")
+}
+
+model TaoInstallment {
+  id          String          @id @default(uuid())
+  tao_id      String
+  tao         Tao             @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  description String
+  due_date    DateTime        @db.Date
+  value       Decimal         @db.Decimal(15, 2)
+  is_paid     Boolean         @default(false)
+  paid_date   DateTime?       @db.Date
+  type        InstallmentType
+
+  @@map("tao_installments")
+}
+
+model TaoAdditive {
+  id                     String         @id @default(uuid())
+  tao_id                 String
+  tao                    Tao            @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  description            String
+  approval_date          DateTime?      @db.Date
+  value                  Decimal        @db.Decimal(15, 2)
+  approval_status        ApprovalStatus @default(draft)
+  current_approval_level Int            @default(0)
+
+  @@map("tao_additives")
+}
+
+model TaoTeamMember {
+  id        String  @id @default(uuid())
+  tao_id    String
+  tao       Tao     @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  name      String
+  role      String
+  email     String
+  team_type String? // internal, external, etc.
+
+  @@map("tao_team_members")
+}
+
+model TaoContact {
+  id     String  @id @default(uuid())
+  tao_id String
+  tao    Tao     @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  name   String
+  role   String?
+  email  String?
+  phone  String?
+
+  @@map("tao_contacts")
+}
+
+model TaoAttachment {
+  id        String @id @default(uuid())
+  tao_id    String
+  tao       Tao    @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  file_name String
+  file_url  String
+  file_type String?
+
+  @@map("tao_attachments")
+}
+
+model TaoApprover {
+  id         String        @id @default(uuid())
+  tao_id     String
+  tao        Tao           @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  user_email String
+  user       User          @relation(fields: [user_email], references: [email])
+  level      Int
+  scope      ApprovalScope
+
+  @@map("tao_approvers")
+}
+
+model TaoApprovalHistory {
+  id             String   @id @default(uuid())
+  reference_id   String   // ID of Tao or Additive
+  reference_type String   // 'tao' or 'additive'
+  approver_email String
+  approver       User     @relation(fields: [approver_email], references: [email])
+  action         String   // 'approved', 'rejected', 'requested'
+  level          Int
+  comments       String?  @db.Text
+  created_at     DateTime @default(now())
+
+  @@map("tao_approval_history")
+}
+
+model TaoLog {
+  id         String     @id @default(uuid())
+  tao_id     String?
+  tao        Tao?       @relation(fields: [tao_id], references: [id], onDelete: SetNull)
+  user_email String?
+  user       User?      @relation("UserLogs", fields: [user_email], references: [email]) // User who performed action
+  action     ActionType
+  details    Json?
+  created_at DateTime   @default(now())
+
+  @@map("tao_logs")
+}
+
+model BankAccount {
+  id             String  @id @default(uuid())
+  description    String
+  bank_name      String
+  agency         String?
+  account_number String?
+  pix            String?
+  company_type   String? // 'consultancy' or 'construction'
+
+  @@map("bank_accounts")
+}
+
+model TaoGlobalSettings {
+  id                                 String   @id @default(uuid())
+  setting_name                       String   @unique
+  default_iss_percent                Decimal? @db.Decimal(5, 2)
+  default_inss_percent               Decimal? @db.Decimal(5, 2)
+  default_pis_percent                Decimal? @db.Decimal(5, 2)
+  default_cofins_percent             Decimal? @db.Decimal(5, 2)
+  default_csll_percent               Decimal? @db.Decimal(5, 2)
+  default_ir_percent                 Decimal? @db.Decimal(5, 2)
+  default_consultancy_split_percent  Decimal? @db.Decimal(5, 2)
+  default_construction_split_percent Decimal? @db.Decimal(5, 2)
+
+  @@map("tao_global_settings")
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  user_email String
+  user       User             @relation(fields: [user_email], references: [email])
+  title      String
+  message    String           @db.Text
+  link       String?
+  is_read    Boolean          @default(false)
+  type       NotificationType
+  created_at DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+model SystemConfig {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+  @@map("system_configs")
+}

@@ -1,0 +1,95 @@
+
+import './App.css'
+import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClientInstance } from '@/lib/query-client'
+import { pagesConfig } from './pages.config'
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import PageNotFound from './lib/PageNotFound';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import SSOCallback from './pages/SSOCallback';
+import AccessBlocked from './pages/AccessBlocked';
+import TaoDeepLink from './pages/TaoDeepLink';
+
+const { Pages, Layout, mainPage } = pagesConfig;
+const mainPageKey = mainPage ?? Object.keys(Pages)[0];
+const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+const LoginPage = Pages["Login"];
+
+const LayoutWrapper = ({ children, currentPageName }) => Layout ?
+  <Layout currentPageName={currentPageName}>{children}</Layout>
+  : <>{children}</>;
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Public Routes can be accessed without auth
+  const isPublicRoute = ['/Login', '/sso-callback', '/access-blocked'].includes(location.pathname);
+
+  if (!isAuthenticated && !isPublicRoute) {
+    // Save intended URL to localStorage so SSO callback can redirect back
+    const intendedUrl = `${location.pathname}${location.search}`;
+    if (intendedUrl !== '/') {
+      localStorage.setItem('login_redirect_url', intendedUrl);
+    }
+    return <Navigate to="/Login" state={{ from: location }} replace />;
+  }
+
+  return (
+    <Routes>
+      <Route path="/Login" element={LoginPage ? <LoginPage /> : <div>Login Page Missing</div>} />
+      <Route path="/sso-callback" element={<SSOCallback />} />
+      <Route path="/access-blocked" element={<AccessBlocked />} />
+
+      <Route path="/" element={
+        <LayoutWrapper currentPageName={mainPageKey}>
+          <MainPage />
+        </LayoutWrapper>
+      } />
+
+      {Object.entries(Pages).map(([path, Page]) => (
+        path !== "Login" && (
+          <Route
+            key={path}
+            path={`/${path}`}
+            element={
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            }
+          />
+        )
+      ))}
+      <Route path="*" element={<PageNotFound />} />
+      <Route path="/open/:identifier" element={<TaoDeepLink />} />
+    </Routes>
+  );
+};
+
+
+function App() {
+
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+        <SonnerToaster />
+      </QueryClientProvider>
+    </AuthProvider>
+  )
+}
+
+export default App
