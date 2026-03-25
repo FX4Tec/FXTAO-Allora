@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: fxtao_db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fxtao_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d fxtao_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../
+      dockerfile: deploy/backend.Dockerfile
+    container_name: fxtao
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fxtao_network
+
+  web:
+    build:
+      context: ../
+      dockerfile: deploy/frontend.prod.Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: fxtao_web
+    restart: always
+    ports:
+      - '127.0.0.1:8080:80'
+    depends_on:
+      - api
+    networks:
+      - fxtao_network
+
+volumes:
+  postgres_data:
+
+networks:
+  fxtao_network:
+    driver: bridge

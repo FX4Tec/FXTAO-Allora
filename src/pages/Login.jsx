@@ -22,10 +22,10 @@ const Login = () => {
 
     // Fetch System Configs for Logos
     const { data: systemConfigs } = useQuery({
-        queryKey: ['systemConfigs'],
+        queryKey: ['loginBranding'],
         queryFn: async () => {
             try {
-                const res = await api.get('/resources/system-configs');
+                const res = await api.get('/auth/branding');
                 return res.data || [];
             } catch (error) {
                 console.error("Failed to fetch configs", error);

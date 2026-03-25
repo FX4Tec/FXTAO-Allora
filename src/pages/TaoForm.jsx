@@ -102,7 +102,7 @@ export default function TaoForm() {
 
       if (isUpdate) {
         if (existingTao?.status === '5' && user?.role !== 'admin' && user?.role !== 'director') {
-          throw new Error("TAO Finalizado. Apenas Administradores podem alterar.");
+          throw new Error("TAO cadastrada. Apenas Administradores podem alterar.");
         }
         const res = await api.put(`/taos/${id}`, data);
         result = res.data;
@@ -115,7 +115,7 @@ export default function TaoForm() {
           details: `Updated TAO fields: ${Object.keys(data).join(', ')}`
         });
       } else {
-        if (!canEdit) throw new Error("Edição bloqueada. Aguardando aprovação ou finalizado.");
+        if (!canEdit) throw new Error("Edição bloqueada. Aguardando aprovação ou cadastro concluído.");
 
         const res = await api.post('/taos', data);
         result = res.data;

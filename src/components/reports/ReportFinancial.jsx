@@ -1,52 +1,36 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Loader2, TrendingUp, Wallet } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { formatCurrency, toNumber, useReportResourceList, useReportTaos } from './useReportData';
 
 export default function ReportFinancial() {
-  const { data: taos, isLoading } = useQuery({
-    queryKey: ['reports-financial'],
-    queryFn: async () => {
-      const res = await api.get('/resources/taos');
-      return res.data || [];
-    },
-  });
-
-  const { data: additives } = useQuery({
-    queryKey: ['reports-additives'],
-    queryFn: async () => {
-      const res = await api.get('/resources/tao-additives');
-      return res.data || [];
-    },
-  });
+  const { data: taos = [], isLoading } = useReportTaos();
+  const { data: additives = [] } = useReportResourceList('tao-additives');
 
   if (isLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
   }
 
-  // Helpers
-  const formatCurrency = (val) => val ? `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'R$ 0,00';
-
   // Aggregations
-  const totalContract = taos?.reduce((sum, t) => sum + (t.value_total_contract || 0), 0) || 0;
-  const totalTaxes = taos?.reduce((sum, t) => sum + (t.value_taxes || 0), 0) || 0;
+  const totalContract = taos.reduce((sum, item) => sum + toNumber(item.value_total_contract), 0);
+  const totalTaxes = taos.reduce((sum, item) => sum + toNumber(item.value_taxes), 0);
 
-  const additivesByProject = additives?.reduce((acc, add) => {
-    acc[add.tao_id] = (acc[add.tao_id] || 0) + (add.value || 0);
+  const additivesByProject = additives.reduce((acc, add) => {
+    acc[add.tao_id] = (acc[add.tao_id] || 0) + toNumber(add.value);
     return acc;
-  }, {}) || {};
+  }, {});
 
   const totalAdditives = Object.values(additivesByProject).reduce((sum, val) => sum + val, 0);
+  const additivesPercentage = totalContract > 0 ? (totalAdditives / totalContract) * 100 : 0;
 
-  const projectFinancials = taos?.map(tao => ({
+  const projectFinancials = taos.map((tao) => ({
     name: tao.project_name,
-    contract: tao.value_total_contract || 0,
+    contract: toNumber(tao.value_total_contract),
     additives: additivesByProject[tao.id] || 0,
-    total: (tao.value_total_contract || 0) + (additivesByProject[tao.id] || 0)
-  })).sort((a, b) => b.total - a.total).slice(0, 10); // Top 10
+    total: toNumber(tao.value_total_contract) + (additivesByProject[tao.id] || 0)
+  })).sort((a, b) => b.total - a.total).slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -66,7 +50,7 @@ export default function ReportFinancial() {
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">{formatCurrency(totalAdditives)}</div>
             <p className="text-xs text-slate-500 mt-1">
-              {((totalAdditives / totalContract) * 100).toFixed(2)}% do valor inicial
+              {additivesPercentage.toFixed(2)}% do valor inicial
             </p>
           </CardContent>
         </Card>
@@ -117,7 +101,7 @@ export default function ReportFinancial() {
             <TableBody>
               {taos?.map((tao) => {
                 const adds = additivesByProject[tao.id] || 0;
-                const total = (tao.value_total_contract || 0) + adds;
+                const total = toNumber(tao.value_total_contract) + adds;
                 return (
                   <TableRow key={tao.id}>
                     <TableCell className="font-medium">{tao.project_name}</TableCell>

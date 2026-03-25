@@ -80,3 +80,16 @@ exports.me = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// Public branding used by login page (no token required)
+exports.branding = async (_req, res) => {
+    try {
+        const configs = await prisma.systemConfig.findMany({
+            where: { key: { in: ['client_logo_url'] } },
+            select: { key: true, value: true }
+        });
+        res.json(configs);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};

@@ -1,27 +1,12 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ShieldCheck, ShieldAlert, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, ShieldCheck, ShieldAlert, Clock, FileClock } from 'lucide-react';
+import { getApprovalStatusLabel, useReportResourceList, useReportTaos } from './useReportData';
 
 export default function ReportApprovals() {
-  const { data: taos, isLoading } = useQuery({
-    queryKey: ['reports-approvals-taos'],
-    queryFn: async () => {
-      const res = await api.get('/resources/taos');
-      return res.data || [];
-    },
-  });
-
-  const { data: additives } = useQuery({
-    queryKey: ['reports-approvals-additives'],
-    queryFn: async () => {
-      const res = await api.get('/resources/tao-additives');
-      return res.data || [];
-    },
-  });
+  const { data: taos = [], isLoading } = useReportTaos();
+  const { data: additives = [] } = useReportResourceList('tao-additives');
 
   if (isLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
@@ -31,13 +16,14 @@ export default function ReportApprovals() {
   const pendingTaos = taos?.filter(t => t.approval_status === 'pending') || [];
   const approvedTaos = taos?.filter(t => t.approval_status === 'approved') || [];
   const rejectedTaos = taos?.filter(t => t.approval_status === 'rejected') || [];
+  const draftTaos = taos?.filter(t => !t.approval_status || t.approval_status === 'draft') || [];
 
   const pendingAdditives = additives?.filter(a => a.approval_status === 'pending') || [];
   const approvedAdditives = additives?.filter(a => a.approval_status === 'approved') || [];
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="bg-yellow-50 border-yellow-200">
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm font-medium text-yellow-800">Pendentes de Aprovação</CardTitle>
@@ -49,6 +35,21 @@ export default function ReportApprovals() {
             </div>
             <p className="text-xs text-yellow-700 mt-1">
               {pendingTaos.length} Obras, {pendingAdditives.length} Aditivos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-50 border-slate-200">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-sm font-medium text-slate-800">Em Rascunho</CardTitle>
+            <FileClock className="w-4 h-4 text-slate-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-900">
+              {draftTaos.length}
+            </div>
+            <p className="text-xs text-slate-600 mt-1">
+              Obras sem envio para aprovação
             </p>
           </CardContent>
         </Card>
@@ -99,15 +100,16 @@ export default function ReportApprovals() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...pendingTaos, ...rejectedTaos, ...approvedTaos].slice(0, 5).map((tao) => (
+                {[...pendingTaos, ...rejectedTaos, ...approvedTaos, ...draftTaos].slice(0, 5).map((tao) => (
                   <TableRow key={tao.id}>
                     <TableCell className="font-medium">{tao.project_name}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase
                         ${tao.approval_status === 'approved' ? 'bg-green-100 text-green-700' :
                           tao.approval_status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'}`}>
-                        {tao.approval_status || 'draft'}
+                            tao.approval_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-slate-100 text-slate-700'}`}>
+                        {getApprovalStatusLabel(tao.approval_status)}
                       </span>
                     </TableCell>
                     <TableCell>{tao.current_approval_level || 0}</TableCell>

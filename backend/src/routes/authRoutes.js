@@ -6,6 +6,7 @@ const authController = require('../controllers/authController');
 router.post('/login', authController.login);
 router.post('/register', authController.register);
 router.get('/me', require('../middlewares/authMiddleware'), authController.me);
+router.get('/branding', authController.branding);
 
 // SSO Routes
 router.get('/microsoft', ssoController.initiateMicrosoftLogin);

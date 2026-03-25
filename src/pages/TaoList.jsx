@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import api from '@/services/api';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -15,7 +15,9 @@ import {
   MoreHorizontal,
   ArrowRight,
   Pencil,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,13 +34,16 @@ import { Badge } from "@/components/ui/badge";
 export default function TaoList() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const LIMIT = 10;
 
   const { data: responseData, isLoading } = useQuery({
-    queryKey: ['taos'],
+    queryKey: ['taos', page],
     queryFn: async () => {
-      const response = await api.get('/taos');
+      const response = await api.get(`/taos?page=${page}&limit=${LIMIT}`);
       return response.data;
     },
+    keepPreviousData: true, // Keep showing previous data while loading new page
   });
 
   const deleteMutation = useMutation({
@@ -60,6 +65,15 @@ export default function TaoList() {
 
   const taos = responseData?.data || [];
   const meta = responseData?.meta;
+  const totalPages = meta?.pages || 1;
+
+  const handlePreviousPage = () => {
+    if (page > 1) setPage((old) => old - 1);
+  };
+
+  const handleNextPage = () => {
+    if (page < totalPages) setPage((old) => old + 1);
+  };
 
   const statusColors = {
     start: "bg-slate-100 text-slate-700",
@@ -82,13 +96,13 @@ export default function TaoList() {
     "2": "Financeiro",
     "3": "Aditivos",
     "4": "Compliance",
-    "5": "Finalizado",
+    "5": "Cadastrado",
     // Handle raw Prisma enum values
     step1: "Contrato",
     step2: "Financeiro",
     step3: "Aditivos",
     step4: "Compliance",
-    step5: "Finalizado",
+    step5: "Cadastrado",
   };
 
   return (
@@ -187,6 +201,33 @@ export default function TaoList() {
             )}
           </TableBody>
         </Table>
+
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between px-4 py-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="text-sm text-slate-500">
+            Página <span className="font-medium">{page}</span> de <span className="font-medium">{totalPages}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousPage}
+              disabled={page === 1 || isLoading}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={page >= totalPages || isLoading}
+            >
+              Próxima
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

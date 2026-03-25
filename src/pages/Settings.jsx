@@ -8,13 +8,14 @@ import PermissionsManager from '@/components/PermissionsManager';
 import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCard';
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const [clientLogoUrl, setClientLogoUrl] = useState('');
 
   // Fetch System Configs
-  const { data: systemConfigs, refetch: refetchConfigs } = useQuery({
+  const { data: systemConfigs } = useQuery({
     queryKey: ['systemConfigs'],
     queryFn: async () => {
       const res = await api.get('/resources/system-configs');
@@ -61,7 +62,7 @@ export default function Settings() {
     default_construction_split_percent: 90
   });
 
-  const { data: existingSettings, isLoading } = useQuery({
+  const { data: existingSettings } = useQuery({
     queryKey: ['globalSettings'],
     queryFn: async () => {
       const res = await api.get('/resources/tao-global-settings');
@@ -260,6 +261,8 @@ export default function Settings() {
             <PermissionsManager />
           </CardContent>
         </Card>
+
+        <IntegrationSettingsCard />
 
         {/* Client Logo Config */}
         <Card className="border-slate-200 shadow-sm md:col-span-2">

@@ -40,7 +40,7 @@ const STATUS_LABEL = {
     '2': 'Etapa 2',
     '3': 'Etapa 3',
     '4': 'Etapa 4',
-    '5': 'Entregue',
+    '5': 'Cadastrado',
 };
 
 // Status → progress %
@@ -453,17 +453,17 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
 
-                    {/* Obras Entregues */}
+                    {/* Obras Cadastradas */}
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader>
                             <div className="flex justify-between items-center">
-                                <CardTitle className="text-green-700">Obras Entregues ({stats.deliveredCount})</CardTitle>
-                                <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Finalizadas</Badge>
+                                <CardTitle className="text-green-700">Obras Cadastradas ({stats.deliveredCount})</CardTitle>
+                                <Badge className="bg-green-100 text-green-700 hover:bg-green-200">Cadastradas</Badge>
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             {stats.deliveredProjects.length === 0 ? (
-                                <p className="p-6 text-center text-slate-400">Nenhuma obra entregue.</p>
+                                <p className="p-6 text-center text-slate-400">Nenhuma obra cadastrada.</p>
                             ) : (
                                 <div className="divide-y divide-slate-100">
                                     {stats.deliveredProjects.map(p => (
@@ -475,7 +475,7 @@ export default function Dashboard() {
                                             <div className="text-right">
                                                 <div className="text-sm font-bold text-slate-700">{formatMoney(p.value_total_contract)}</div>
                                                 <div className="text-xs text-green-600 flex items-center gap-1 justify-end">
-                                                    <CheckCircle2 className="w-3 h-3" /> Entregue
+                                                    <CheckCircle2 className="w-3 h-3" /> Cadastrado
                                                 </div>
                                             </div>
                                         </div>

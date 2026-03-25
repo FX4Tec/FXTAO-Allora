@@ -1,26 +1,14 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Loader2, Building2, MapPin } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Loader2, MapPin } from 'lucide-react';
+import { getStatusLabel, isFinishedStatus, useReportTaos } from './useReportData';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export default function ReportGeneral() {
-  const { data: taos, isLoading } = useQuery({
-    queryKey: ['reports-general'],
-    queryFn: async () => {
-      const res = await api.get('/resources/taos');
-      // Handle both direct array and paginated response
-      const data = res.data;
-      if (data && Array.isArray(data.data)) {
-        return data.data;
-      }
-      return Array.isArray(data) ? data : [];
-    },
-  });
+  const { data: taos = [], isLoading } = useReportTaos();
 
   if (isLoading) {
     return <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>;
@@ -30,9 +18,7 @@ export default function ReportGeneral() {
   const totalProjects = taos?.length || 0;
 
   const statusCount = taos?.reduce((acc, curr) => {
-    const status = curr.status === '5' ? 'Finalizado' :
-      curr.status === 'start' ? 'Início' :
-        `Etapa ${curr.status}`;
+    const status = getStatusLabel(curr.status);
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
@@ -68,11 +54,11 @@ export default function ReportGeneral() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Obras Finalizadas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Obras Cadastradas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {statusCount?.['Finalizado'] || 0}
+              {taos.filter((tao) => isFinishedStatus(tao.status)).length}
             </div>
           </CardContent>
         </Card>
@@ -82,7 +68,7 @@ export default function ReportGeneral() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {totalProjects - (statusCount?.['Finalizado'] || 0)}
+              {taos.filter((tao) => !isFinishedStatus(tao.status)).length}
             </div>
           </CardContent>
         </Card>
@@ -168,8 +154,8 @@ export default function ReportGeneral() {
                   </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                      ${tao.status === '5' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {tao.status === '5' ? 'Finalizado' : `Etapa ${tao.status}`}
+                      ${isFinishedStatus(tao.status) ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {getStatusLabel(tao.status)}
                     </span>
                   </TableCell>
                 </TableRow>
