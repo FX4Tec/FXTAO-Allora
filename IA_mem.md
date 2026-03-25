@@ -463,3 +463,44 @@ Conectar esta instancia ao repositorio `https://github.com/FX4Tec/FXTAO.git`, pr
 - O passo seguinte recomendado e:
   - adicionar a chave publica no repositorio GitHub como `Deploy key` com permissao de escrita;
   - depois conectar o repositório local, buscar o historico remoto e fazer um merge preservando a arvore atual da VPS como base.
+
+### 2026-03-25 17:10 America/Sao_Paulo
+
+**Prompt**
+
+Com a `deploy key` ja instalada no GitHub, conectar esta instancia ao repositorio `git@github.com:FX4Tec/FXTAO.git`, preservar o historico existente do repositório e publicar o estado atual desta VPS Allora como a nova referencia da `main`, sem mexer nos arquivos funcionais da aplicacao em producao.
+
+**Retorno resumido**
+
+- O diretorio `/opt/FXTAO` foi inicializado como repositorio Git local.
+- O remoto `origin` foi configurado para:
+  - `git@github.com:FX4Tec/FXTAO.git`
+- A conexao SSH com a `deploy key` funcionou e a branch remota `main` foi buscada com sucesso.
+- Historico remoto preservado:
+  - `0561ed5` `Finalize production deployment setup and apply Deep Link fixes`
+  - `020c528` `Add production deployment files`
+  - `8b91d1f` `Initial commit`
+- Para proteger producao e segredos sem alterar os arquivos do projeto, foram aplicadas exclusoes apenas em `.git/info/exclude`, cobrindo:
+  - `backups/`
+  - `backend/.env`
+  - `deploy/.env`
+  - `backend/node_modules/`
+  - `backend/uploads/`
+- O estado atual desta VPS foi commitado por cima da `origin/main`, preservando o historico remoto, com o commit:
+  - `ef628bf` `chore: sync Allora VPS production state`
+- O push para o GitHub foi concluido com sucesso e a `main` remota passou a apontar para este commit.
+
+**Validacao final**
+
+- `git status --short --branch` retornou:
+  - `## main...origin/main`
+- `git log --oneline --decorate -3` retornou:
+  - `ef628bf (HEAD -> main, origin/main) chore: sync Allora VPS production state`
+  - `0561ed5 Finalize production deployment setup and apply Deep Link fixes`
+  - `020c528 Add production deployment files`
+
+**Observacoes**
+
+- Nenhum arquivo funcional da aplicacao em producao foi alterado para realizar a conexao com o GitHub; a operacao concentrou-se em metadados Git e exclusoes locais de versionamento.
+- Backup do arquivo de memoria criado antes desta atualizacao em:
+  - `/opt/FXTAO/backups/20260325-1710-git-push/IA_mem.md.bak`
