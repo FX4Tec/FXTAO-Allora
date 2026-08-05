@@ -43,11 +43,11 @@ export const getStatusLabel = (status) => {
   const normalized = normalizeStatus(status);
 
   return {
-    start: 'Início',
-    '1': 'Contrato',
-    '2': 'Financeiro',
-    '3': 'Aditivos',
-    '4': 'Compliance',
+    start: 'Em elaboração',
+    '1': 'Estrutura intermediária',
+    '2': 'Estrutura intermediária',
+    '3': 'Estrutura intermediária',
+    '4': 'Estrutura intermediária',
     '5': 'Cadastrado',
   }[normalized] || normalized;
 };

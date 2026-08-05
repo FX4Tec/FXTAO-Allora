@@ -1,0 +1,46 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "fxtao-work-page-client-side-solution",
+    "id": "4dcaedd0-9e70-4c28-906f-0ae3e5b68c14",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "webApiPermissionRequests": [
+      {
+        "resource": "FX TAO API",
+        "scope": "access_as_user"
+      }
+    ],
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.22.2"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Dados integrados da obra no FX TAO"
+      },
+      "longDescription": {
+        "default": "Dados integrados da obra no FX TAO"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "fxtao-work-page Feature",
+        "description": "The feature that activates elements of the fxtao-work-page solution.",
+        "id": "3242299f-463a-4af1-b5a6-39d48e5784bc",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/fxtao-work-page.sppkg"
+  }
+}

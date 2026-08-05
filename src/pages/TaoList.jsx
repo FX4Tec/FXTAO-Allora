@@ -10,14 +10,12 @@ import { format } from 'date-fns';
 import {
   Plus,
   Search,
-  FileText,
   Calendar,
-  MoreHorizontal,
-  ArrowRight,
   Pencil,
   Trash2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,12 +33,13 @@ export default function TaoList() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [sortField, setSortField] = useState('project_name');
   const LIMIT = 10;
 
   const { data: responseData, isLoading } = useQuery({
-    queryKey: ['taos', page],
+    queryKey: ['taos', page, sortField],
     queryFn: async () => {
-      const response = await api.get(`/taos?page=${page}&limit=${LIMIT}`);
+      const response = await api.get(`/taos?page=${page}&limit=${LIMIT}&sort_by=${sortField}&sort_order=asc`);
       return response.data;
     },
     keepPreviousData: true, // Keep showing previous data while loading new page
@@ -74,6 +73,24 @@ export default function TaoList() {
   const handleNextPage = () => {
     if (page < totalPages) setPage((old) => old + 1);
   };
+
+  const handleSort = (field) => {
+    setSortField(field);
+    setPage(1);
+  };
+
+  const renderSortableHead = (label, field, className = '') => (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => handleSort(field)}
+        className="inline-flex items-center gap-1 font-semibold text-slate-500 transition-colors hover:text-slate-900"
+      >
+        <span>{label}</span>
+        {sortField === field && <ChevronUp className="h-4 w-4 text-indigo-600" />}
+      </button>
+    </TableHead>
+  );
 
   const statusColors = {
     start: "bg-slate-100 text-slate-700",
@@ -124,39 +141,37 @@ export default function TaoList() {
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <Input placeholder="Buscar por nome da obra, ID ou ERP..." className="pl-9 bg-white" />
+            <Input placeholder="Buscar por nome da obra ou ERP..." className="pl-9 bg-white" />
           </div>
         </div>
 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px]">ID</TableHead>
-              <TableHead>Obra</TableHead>
-              <TableHead>ERP Nº</TableHead>
-              <TableHead>Regime</TableHead>
-              <TableHead>Data Criação</TableHead>
-              <TableHead>Etapa</TableHead>
+              {renderSortableHead('Obra', 'project_name')}
+              {renderSortableHead('ERP Nº', 'erp_number')}
+              {renderSortableHead('Regime', 'hiring_regime')}
+              {renderSortableHead('Data Criação', 'created_at')}
+              {renderSortableHead('Etapa', 'status')}
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-slate-500">
+                <TableCell colSpan={6} className="h-24 text-center text-slate-500">
                   Carregando obras...
                 </TableCell>
               </TableRow>
             ) : taos?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-slate-500">
+                <TableCell colSpan={6} className="h-32 text-center text-slate-500">
                   Nenhum TAO encontrado. Clique em "Novo TAO" para começar.
                 </TableCell>
               </TableRow>
             ) : (
               taos?.map((tao) => (
                 <TableRow key={tao.id} className="hover:bg-slate-50 cursor-pointer group">
-                  <TableCell className="font-mono text-slate-500">#{tao.id.slice(-4)}</TableCell>
                   <TableCell className="font-medium text-slate-900">
                     <Link to={`${createPageUrl('TaoForm')}?id=${tao.id}`} className="hover:underline">
                       {tao.project_name}

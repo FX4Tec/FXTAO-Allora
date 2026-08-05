@@ -11,7 +11,15 @@ const modelMap = {
     'tao-contacts': 'taoContact',
     'tao-team-members': 'taoTeamMember',
     'tao-attachments': 'taoAttachment',
+    'tao-direct-billing-document-items': 'taoDirectBillingDocumentItem',
+    'tao-initial-checklist-items': 'taoInitialChecklistItem',
     'bank-accounts': 'bankAccount',
+    companies: 'company',
+    clients: 'client',
+    'business-areas': 'businessArea',
+    'cost-center-categories': 'costCenterCategory',
+    'tao-cost-centers': 'taoCostCenter',
+    'tao-authorized-bank-accounts': 'taoAuthorizedBankAccount',
     'notifications': 'notification',
     'system-configs': 'systemConfig'
 };

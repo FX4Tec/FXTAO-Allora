@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIc
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCard';
+import TaoTransferCard from '@/components/settings/TaoTransferCard';
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -263,6 +264,8 @@ export default function Settings() {
         </Card>
 
         <IntegrationSettingsCard />
+
+        <TaoTransferCard />
 
         {/* Client Logo Config */}
         <Card className="border-slate-200 shadow-sm md:col-span-2">

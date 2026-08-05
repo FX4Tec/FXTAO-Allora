@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import api from '@/services/api';
 import { useAuth } from '@/lib/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, XCircle, Clock, AlertCircle, FileText, Check } from 'lucide-react';
+import { CheckCircle2, XCircle, FileText, Check } from 'lucide-react';
 import { toast } from "sonner";
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -21,8 +21,8 @@ export default function Approvals() {
     const { data: taos } = useQuery({
         queryKey: ['taosForApproval'],
         queryFn: async () => {
-            const res = await api.get('/resources/taos', { params: { approval_status: 'pending' } });
-            return res.data || [];
+            const res = await api.get('/taos', { params: { approval_status: 'pending', limit: 200 } });
+            return res.data?.data || [];
         },
     });
 
@@ -117,17 +117,20 @@ function ApprovalCard({ item, type, user, onSuccess }) {
 
     const mutation = useMutation({
         mutationFn: async ({ status }) => {
-            // 1. Log history
+            if (type === 'tao') {
+                return api.post(`/taos/${item.id}/decision`, { action: status, comments: comment });
+            }
+
             await api.post('/resources/tao-approval-history', {
                 reference_id: item.id,
                 reference_type: type,
                 approver_email: user.email,
-                action: status === 'approved' ? 'approved' : 'rejected',
+                action: status,
                 level: (item.current_approval_level || 0) + 1,
                 comments: comment
             });
 
-            const resourcePath = type === 'tao' ? '/resources/taos' : '/resources/tao-additives';
+            const resourcePath = '/resources/tao-additives';
 
             if (status === 'rejected') {
                 return api.put(`${resourcePath}/${item.id}`, {

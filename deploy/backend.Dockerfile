@@ -3,14 +3,19 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY backend/package*.json ./
-RUN apk add --no-cache openssl
-RUN npm install
+RUN apk add --no-cache openssl \
+    && npm ci
 
-COPY backend/ .
-# Variável fictícia para validação do Prisma durante o build
+COPY backend/ ./
 ENV DATABASE_URL="postgresql://user:password@localhost:5432/fxtao_db?schema=public"
-RUN npx prisma generate
+RUN npx prisma generate \
+    && npm prune --omit=dev \
+    && mkdir -p /app/uploads \
+    && chown -R node:node /app
+
+ENV NODE_ENV=production
+USER node
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

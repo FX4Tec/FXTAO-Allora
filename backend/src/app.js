@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const taoRoutes = require('./routes/taoRoutes');
 const integrationRoutes = require('./routes/integrationRoutes');
 const integrationAdminRoutes = require('./routes/integrationAdminRoutes');
+const taoTransferRoutes = require('./routes/taoTransferRoutes');
 
 const app = express();
 app.set('trust proxy', true);
@@ -23,6 +24,8 @@ app.use('/api/v1/users', require('./routes/userRoutes'));
 app.use('/api/v1/taos', taoRoutes);
 app.use('/api/v1/integrations', integrationRoutes);
 app.use('/api/v1/integration-admin', integrationAdminRoutes);
+app.use('/api/v1/tao-transfer', taoTransferRoutes);
+app.use('/api/v1/sharepoint', require('./routes/sharepointRoutes'));
 app.use('/uploads', express.static('uploads'));
 app.use('/api/v1/resources', require('./routes/resourceRoutes'));
 app.use('/api/v1/uploads', require('./routes/uploadRoutes'));

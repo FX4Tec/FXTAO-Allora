@@ -1,14 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '@/services/api';
 import { useQuery } from '@tanstack/react-query';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Calculator, Lock, Unlock } from 'lucide-react';
+import { Calculator, Unlock } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+
+const CLIENT_PORTAL_LINKS_PLACEHOLDER = "https://portal.cliente/empreendimento";
+
+const AREA_MEASURE_OPTIONS = ['m2', 'ha', 'unidade'];
+const APPROPRIATION_LEVEL_OPTIONS = ['obra', 'bloco', 'torre', 'unidade'];
+const ENTERPRISE_NATURE_OPTIONS = ['Incorporação', 'Construção por Administração', 'Loteamento', 'Outro'];
+const REAL_ESTATE_UNIT_OPTIONS = ['Apartamento', 'Casa', 'Sala Comercial', 'Lote', 'Outro'];
 
 // ──────── Currency helpers ────────
 const toBRL = (v) => {
@@ -89,7 +96,7 @@ function TaxValueInput({ value, onChange, className = '', ...props }) {
   );
 }
 
-export default function TaoStep1({ taoData, updateTao }) {
+export default function TaoStep1({ taoData, updateTao, canEdit }) {
   const { data: globalSettings } = useQuery({
     queryKey: ['globalSettings'],
     queryFn: async () => {
@@ -103,6 +110,60 @@ export default function TaoStep1({ taoData, updateTao }) {
   const handleChange = (field, value) => {
     updateTao({ ...taoData, [field]: value });
   };
+
+  const handleNestedPayloadChange = (payloadKey, field, value) => {
+    updateTao({
+      ...taoData,
+      [payloadKey]: {
+        ...(taoData[payloadKey] || {}),
+        [field]: value,
+      },
+    });
+  };
+
+  const toggleAuthorizedBankAccount = (bankAccountId, checked) => {
+    const currentIds = Array.isArray(taoData.authorized_bank_account_ids)
+      ? taoData.authorized_bank_account_ids
+      : [];
+
+    const nextIds = checked
+      ? Array.from(new Set([...currentIds, bankAccountId]))
+      : currentIds.filter((id) => id !== bankAccountId);
+
+    handleChange('authorized_bank_account_ids', nextIds);
+  };
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies'],
+    queryFn: async () => {
+      const res = await api.get('/resources/companies');
+      return res.data || [];
+    }
+  });
+
+  const { data: businessAreas = [] } = useQuery({
+    queryKey: ['businessAreas'],
+    queryFn: async () => {
+      const res = await api.get('/resources/business-areas');
+      return res.data || [];
+    }
+  });
+
+  const { data: costCenterCategories = [] } = useQuery({
+    queryKey: ['costCenterCategories'],
+    queryFn: async () => {
+      const res = await api.get('/resources/cost-center-categories');
+      return res.data || [];
+    }
+  });
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ['bankAccounts'],
+    queryFn: async () => {
+      const res = await api.get('/resources/bank-accounts');
+      return res.data || [];
+    }
+  });
 
   const handleAutoCalculation = () => {
     if (!isAuto || !globalSettings || !taoData.value_total_contract) return;
@@ -157,12 +218,6 @@ export default function TaoStep1({ taoData, updateTao }) {
     return toBRL(value) || '0,00';
   };
 
-  // Helper for tax calculation
-  const calculateTaxValue = (baseValue, percent) => {
-    if (!baseValue || !percent) return 0;
-    return (baseValue * percent) / 100;
-  };
-
   // Recalculate Tax Values when percentages change (optional logic, keeping it simple for now - just input binding)
   // In a real app, we might want useEffects to auto-calculate values based on a base amount.
   // For now, we'll assume manual entry or basic sync if needed.
@@ -195,6 +250,7 @@ export default function TaoStep1({ taoData, updateTao }) {
             checked={isAuto}
             onCheckedChange={(checked) => handleChange('calculation_mode', checked ? 'auto' : 'manual')}
             className="data-[state=checked]:bg-indigo-600"
+            disabled={!canEdit}
           />
         </div>
       </div>
@@ -215,6 +271,7 @@ export default function TaoStep1({ taoData, updateTao }) {
                 <Select
                   value={taoData.hiring_regime || ''}
                   onValueChange={(val) => handleChange('hiring_regime', val)}
+                  disabled={!canEdit}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
@@ -233,27 +290,36 @@ export default function TaoStep1({ taoData, updateTao }) {
                 <Input
                   value={taoData.contract_description || ''}
                   onChange={(e) => handleChange('contract_description', e.target.value)}
+                  disabled={!canEdit}
                 />
               </div>
 
               <div className="pt-2">
                 <Label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Prazo Total do Contrato</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <Label className="text-xs">Data Assinatura</Label>
-                    <Input type="date" value={taoData.date_signature || ''} onChange={(e) => handleChange('date_signature', e.target.value)} />
+                    <Input type="date" value={taoData.date_signature || ''} onChange={(e) => handleChange('date_signature', e.target.value)} disabled={!canEdit} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Data Mobilização</Label>
-                    <Input type="date" value={taoData.date_mobilization || ''} onChange={(e) => handleChange('date_mobilization', e.target.value)} />
+                    <Input type="date" value={taoData.date_mobilization || ''} onChange={(e) => handleChange('date_mobilization', e.target.value)} disabled={!canEdit} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Data Início Obra</Label>
-                    <Input type="date" value={taoData.date_start || ''} onChange={(e) => handleChange('date_start', e.target.value)} />
+                    <Input type="date" value={taoData.date_start || ''} onChange={(e) => handleChange('date_start', e.target.value)} disabled={!canEdit} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Data Término Obra</Label>
-                    <Input type="date" value={taoData.date_end || ''} onChange={(e) => handleChange('date_end', e.target.value)} />
+                    <Input type="date" value={taoData.date_end || ''} onChange={(e) => handleChange('date_end', e.target.value)} disabled={!canEdit} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Prazo (dias)</Label>
+                    <Input type="number" min="0" value={taoData.duration_days ?? ''} onChange={(e) => handleChange('duration_days', e.target.value ? Number(e.target.value) : null)} disabled={!canEdit} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Segmento</Label>
+                    <Input value={taoData.segment || ''} onChange={(e) => handleChange('segment', e.target.value)} disabled={!canEdit} />
                   </div>
                 </div>
               </div>
@@ -454,9 +520,9 @@ export default function TaoStep1({ taoData, updateTao }) {
                 <span className="text-xl font-bold text-indigo-700">R$ {formatCurrency(taoData.value_total_contract)}</span>
               </div>
 
-              {/* Helper input for Total (since it might be calculated, but let's allow manual override for now as per request "persist all fields") */}
-              <div className="hidden">
-                {/* Hidden input just to ensure we have a way to set it if needed via UI, or we trust the display above */}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Valor total da venda / contrato</Label>
+                <CurrencyInput value={taoData.value_total_contract} onChange={(value) => handleChange('value_total_contract', value)} disabled={!canEdit} />
               </div>
 
               <div className="space-y-3">
@@ -534,7 +600,24 @@ export default function TaoStep1({ taoData, updateTao }) {
                     className="h-8 font-bold bg-indigo-50"
                     value={taoData.value_b_revenue}
                     onChange={(v) => handleChange('value_b_revenue', v)}
+                    disabled={!canEdit}
                   />
+                </div>
+              </div>
+
+              <Separator className="my-2" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Bonificação (%)</Label>
+                  <Input type="number" step="0.01" value={taoData.bonus_percent ?? ''} onChange={(e) => handleChange('bonus_percent', e.target.value ? Number(e.target.value) : null)} disabled={!canEdit} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Conversão para imposto (%)</Label>
+                  <Input type="number" step="0.01" value={taoData.tax_conversion_percent ?? ''} onChange={(e) => handleChange('tax_conversion_percent', e.target.value ? Number(e.target.value) : null)} disabled={!canEdit} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Valor mínimo de NF (R$)</Label>
+                  <CurrencyInput value={taoData.minimum_invoice_amount} onChange={(value) => handleChange('minimum_invoice_amount', value)} disabled={!canEdit} />
                 </div>
               </div>
 
@@ -550,6 +633,7 @@ export default function TaoStep1({ taoData, updateTao }) {
                       (parseFloat(taoData.value_billing_construction) || 0);
                     handleChange('value_total_contract', total);
                   }}
+                  disabled={!canEdit}
                 >
                   Atualizar Total (Soma Faturamentos)
                 </Button>
@@ -559,6 +643,428 @@ export default function TaoStep1({ taoData, updateTao }) {
           </Card>
 
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+            <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Engenharia</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Tabela de Insumos/Serviços</Label>
+                <Input
+                  value={taoData.engineering_supply_services_table || ''}
+                  onChange={(e) => handleChange('engineering_supply_services_table', e.target.value)}
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Nível de Apropriação</Label>
+                <Select
+                  value={taoData.appropriation_level || ''}
+                  onValueChange={(value) => handleChange('appropriation_level', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPROPRIATION_LEVEL_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label>Unidade de Medida da Área</Label>
+                <Select
+                  value={taoData.area_measure_unit || ''}
+                  onValueChange={(value) => handleChange('area_measure_unit', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AREA_MEASURE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Área da Obra</Label>
+                <Input
+                  type="number"
+                  value={taoData.area_m2 || ''}
+                  onChange={(e) => handleChange('area_m2', e.target.value ? parseFloat(e.target.value) : null)}
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Unidades Construtivas Previstas</Label>
+                <Input
+                  type="number"
+                  value={taoData.planned_construction_units || ''}
+                  onChange={(e) => handleChange('planned_construction_units', e.target.value ? parseInt(e.target.value, 10) : null)}
+                  disabled={!canEdit}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Haverá Orçamento</Label>
+                <Switch checked={taoData.has_engineering_budget || false} onCheckedChange={(value) => handleChange('has_engineering_budget', value)} disabled={!canEdit} />
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Haverá Planejamento</Label>
+                <Switch checked={taoData.has_engineering_planning || false} onCheckedChange={(value) => handleChange('has_engineering_planning', value)} disabled={!canEdit} />
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Acompanhamento Físico</Label>
+                <Switch checked={taoData.has_physical_progress_tracking || false} onCheckedChange={(value) => handleChange('has_physical_progress_tracking', value)} disabled={!canEdit} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Responsável de Engenharia</Label>
+              <Input
+                value={taoData.engineering_responsible_name || ''}
+                onChange={(e) => handleChange('engineering_responsible_name', e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+            <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Financeiro</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-1">
+              <Label>Empresa Financeira Responsável</Label>
+              <Select
+                value={taoData.financial_company_id || ''}
+                onValueChange={(value) => updateTao({
+                  ...taoData,
+                  financial_company_id: value,
+                  financial_company_payload: {},
+                })}
+                disabled={!canEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma empresa..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>{company.legal_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Nova Empresa Financeira</Label>
+                <Input
+                  value={taoData.financial_company_payload?.legal_name || ''}
+                  onChange={(e) => handleNestedPayloadChange('financial_company_payload', 'legal_name', e.target.value)}
+                  placeholder="Preencha se não existir"
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Documento</Label>
+                <Input
+                  value={taoData.financial_company_payload?.document || ''}
+                  onChange={(e) => handleNestedPayloadChange('financial_company_payload', 'document', e.target.value)}
+                  disabled={!canEdit}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Área de Negócio</Label>
+                <Select
+                  value={taoData.financial_business_area_id || ''}
+                  onValueChange={(value) => updateTao({
+                    ...taoData,
+                    financial_business_area_id: value,
+                    financial_business_area_payload: {},
+                  })}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessAreas.map((area) => (
+                      <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Nova Área de Negócio</Label>
+                <Input
+                  value={taoData.financial_business_area_payload?.name || ''}
+                  onChange={(e) => handleNestedPayloadChange('financial_business_area_payload', 'name', e.target.value)}
+                  placeholder="Preencha se não existir"
+                  disabled={!canEdit}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Categoria do Centro de Custo</Label>
+                <Select
+                  value={taoData.financial_cost_center_category_id || ''}
+                  onValueChange={(value) => updateTao({
+                    ...taoData,
+                    financial_cost_center_category_id: value,
+                    financial_cost_center_category_payload: {},
+                  })}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {costCenterCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Nova Categoria</Label>
+                <Input
+                  value={taoData.financial_cost_center_category_payload?.name || ''}
+                  onChange={(e) => handleNestedPayloadChange('financial_cost_center_category_payload', 'name', e.target.value)}
+                  placeholder="Preencha se não existir"
+                  disabled={!canEdit}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Conta Corrente Padrão</Label>
+                <Select
+                  value={taoData.default_financial_bank_account_id || ''}
+                  onValueChange={(value) => handleChange('default_financial_bank_account_id', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>{account.description}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Conta para Emissão de Boletos</Label>
+                <Select
+                  value={taoData.billing_issue_bank_account_id || ''}
+                  onValueChange={(value) => handleChange('billing_issue_bank_account_id', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>{account.description}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label>Contas Correntes Autorizadas</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {bankAccounts.map((account) => (
+                  <label key={account.id} className="flex items-start gap-2 rounded-lg border border-slate-200 p-3">
+                    <input
+                      type="checkbox"
+                      checked={(taoData.authorized_bank_account_ids || []).includes(account.id)}
+                      onChange={(e) => toggleAuthorizedBankAccount(account.id, e.target.checked)}
+                      disabled={!canEdit}
+                    />
+                    <span className="text-sm text-slate-700">{account.description}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Compõe Disponível Financeiro</Label>
+                <Switch checked={taoData.compose_financial_availability || false} onCheckedChange={(value) => handleChange('compose_financial_availability', value)} disabled={!canEdit} />
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Exporta para Portal do Cliente</Label>
+                <Switch checked={taoData.export_to_client_portal || false} onCheckedChange={(value) => handleChange('export_to_client_portal', value)} disabled={!canEdit} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Responsável Financeiro</Label>
+              <Input
+                value={taoData.financial_responsible_name || ''}
+                onChange={(e) => handleChange('financial_responsible_name', e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+            <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Fiscal / Contábil</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>RET</Label>
+                <Switch checked={taoData.is_ret_regime || false} onCheckedChange={(value) => handleChange('is_ret_regime', value)} disabled={!canEdit} />
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Gera SPED / EFD Contribuições</Label>
+                <Switch checked={taoData.generates_sped_efd_contributions || false} onCheckedChange={(value) => handleChange('generates_sped_efd_contributions', value)} disabled={!canEdit} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Natureza do Empreendimento</Label>
+                <Select
+                  value={taoData.enterprise_nature || ''}
+                  onValueChange={(value) => handleChange('enterprise_nature', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTERPRISE_NATURE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Tipo de Unidade Vendida</Label>
+                <Select
+                  value={taoData.real_estate_unit_type || ''}
+                  onValueChange={(value) => handleChange('real_estate_unit_type', value)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REAL_ESTATE_UNIT_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Responsável Fiscal / Contábil</Label>
+              <Input
+                value={taoData.fiscal_responsible_name || ''}
+                onChange={(e) => handleChange('fiscal_responsible_name', e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Observações Fiscais</Label>
+              <Input
+                value={taoData.fiscal_notes || ''}
+                onChange={(e) => handleChange('fiscal_notes', e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+            <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Comercial / Vendas</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Entrega das Chaves</Label>
+                <Input
+                  type="date"
+                  value={taoData.keys_delivery_date || ''}
+                  onChange={(e) => handleChange('keys_delivery_date', e.target.value)}
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>VGV</Label>
+                <CurrencyInput
+                  value={taoData.gross_sales_value}
+                  onChange={(value) => handleChange('gross_sales_value', value)}
+                  disabled={!canEdit}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Agrupamento de Unidades</Label>
+                <Input
+                  value={taoData.units_grouping || ''}
+                  onChange={(e) => handleChange('units_grouping', e.target.value)}
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <Label>Usa Portal do Cliente</Label>
+                <Switch checked={taoData.uses_client_portal || false} onCheckedChange={(value) => handleChange('uses_client_portal', value)} disabled={!canEdit} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Links do Empreendimento no Portal</Label>
+              <Input
+                value={taoData.client_portal_links || ''}
+                onChange={(e) => handleChange('client_portal_links', e.target.value)}
+                placeholder={CLIENT_PORTAL_LINKS_PLACEHOLDER}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Responsável Comercial</Label>
+              <Input
+                value={taoData.commercial_responsible_name || ''}
+                onChange={(e) => handleChange('commercial_responsible_name', e.target.value)}
+                disabled={!canEdit}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ router.use(authMiddleware);
 // CRUD
 router.get('/', taoController.list);
 router.post('/', taoController.create);
+router.post('/:id/decision', taoController.decideApproval);
 router.get('/:id', taoController.getById);
 router.put('/:id', taoController.update);
 router.delete('/:id', taoController.delete);

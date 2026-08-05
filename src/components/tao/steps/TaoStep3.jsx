@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -60,6 +61,15 @@ const STATUS_OPTIONS = [
 ];
 
 const getStatusConfig = (status) => STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
+
+const TAO_LIFECYCLE_OPTIONS = [
+  { value: 'RASCUNHO', label: 'Rascunho' },
+  { value: 'EM_VALIDACAO', label: 'Em Validação' },
+  { value: 'APROVADA', label: 'Aprovada' },
+  { value: 'REPROVADA', label: 'Reprovada' },
+  { value: 'CADASTRADA_NO_SIENGE', label: 'Cadastrada no Sienge' },
+  { value: 'CANCELADA', label: 'Cancelada' },
+];
 
 export default function TaoStep3({ taoData, updateTao, canEdit }) {
   const queryClient = useQueryClient();
@@ -143,6 +153,18 @@ export default function TaoStep3({ taoData, updateTao, canEdit }) {
 
   const totalAdditives = additives?.reduce((sum, item) => sum + (item.value || 0), 0) || 0;
 
+  const handleChange = (field, value) => {
+    updateTao({ ...taoData, [field]: value });
+  };
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const res = await api.get('/users');
+      return res.data || [];
+    },
+  });
+
   if (!taoId) {
     return <div className="p-10 text-center text-slate-500">Salve o TAO primeiro para adicionar aditivos.</div>;
   }
@@ -161,6 +183,130 @@ export default function TaoStep3({ taoData, updateTao, canEdit }) {
           <span className="font-mono text-slate-900">{taoData.erp_number}</span>
         </div>
       </div>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+          <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Controle de Aprovação da TAO</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label>Status da TAO</Label>
+              <select
+                className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                value={taoData.tao_lifecycle_status || ''}
+                onChange={(e) => handleChange('tao_lifecycle_status', e.target.value)}
+                disabled={!canEdit}
+              >
+                <option value="">Selecione...</option>
+                {TAO_LIFECYCLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label>Solicitante</Label>
+              <Input value={taoData.created_by?.full_name || taoData.created_by?.email || ''} disabled />
+            </div>
+            <div className="space-y-1">
+              <Label>Data da Solicitação</Label>
+              <Input type="date" value={taoData.requested_at || ''} onChange={(e) => handleChange('requested_at', e.target.value)} disabled={!canEdit} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>Aprovação Engenharia</Label>
+              <Select value={taoData.engineering_approver_user_id || ''} onValueChange={(value) => handleChange('engineering_approver_user_id', value)} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Aprovação Financeira</Label>
+              <Select value={taoData.financial_approver_user_id || ''} onValueChange={(value) => handleChange('financial_approver_user_id', value)} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Aprovação Fiscal</Label>
+              <Select value={taoData.fiscal_approver_user_id || ''} onValueChange={(value) => handleChange('fiscal_approver_user_id', value)} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Aprovação Diretoria</Label>
+              <Select value={taoData.board_approver_user_id || ''} onValueChange={(value) => handleChange('board_approver_user_id', value)} disabled={!canEdit}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>{user.full_name || user.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label>Data de Aprovação</Label>
+              <Input type="date" value={taoData.approved_at || ''} onChange={(e) => handleChange('approved_at', e.target.value)} disabled={!canEdit} />
+            </div>
+            <div className="space-y-1">
+              <Label>Data Cadastro Sienge</Label>
+              <Input type="date" value={taoData.sienge_registered_at || ''} onChange={(e) => handleChange('sienge_registered_at', e.target.value)} disabled={!canEdit} />
+            </div>
+            <div className="space-y-1">
+              <Label>Motivo de Reprovação</Label>
+              <Input value={taoData.rejection_reason || ''} onChange={(e) => handleChange('rejection_reason', e.target.value)} disabled={!canEdit} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+          <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Histórico de Alterações</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="space-y-3">
+            {(taoData.logs || []).slice(0, 8).map((log) => (
+              <div key={log.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold uppercase text-slate-700">{log.action}</span>
+                  <span className="text-xs text-slate-500">
+                    {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {log.user_email || 'sistema'}
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-700 bg-slate-50 rounded-md p-3 overflow-auto">
+                  {JSON.stringify(log.details, null, 2)}
+                </pre>
+              </div>
+            ))}
+
+            {(!taoData.logs || taoData.logs.length === 0) && (
+              <div className="text-sm text-slate-500">Nenhum histórico registrado ainda.</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
         <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50 flex flex-row items-center justify-between">

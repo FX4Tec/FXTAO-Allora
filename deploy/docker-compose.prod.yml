@@ -1,19 +1,26 @@
-version: '3.8'
-
 services:
   # Database Service
   db:
     image: postgres:15-alpine
     container_name: fxtao_db
     restart: always
-    env_file:
-      - .env
-    ports:
-      - '5432:5432'
+    init: true
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - fxtao_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U admin -d fxtao_db" ]
       interval: 10s
@@ -27,15 +34,41 @@ services:
       dockerfile: deploy/backend.Dockerfile
     container_name: fxtao
     restart: always
-    env_file:
-      - .env
+    init: true
+    user: "node"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      MICROSOFT_REDIRECT_URI: ${MICROSOFT_REDIRECT_URI}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID}
+      SHAREPOINT_API_AUDIENCE: ${SHAREPOINT_API_AUDIENCE:-}
+      SHAREPOINT_REQUIRED_SCOPE: ${SHAREPOINT_REQUIRED_SCOPE:-access_as_user}
+      SHAREPOINT_ALLOWED_CLIENT_IDS: ${SHAREPOINT_ALLOWED_CLIENT_IDS:-}
+      PORT: ${PORT}
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     depends_on:
       db:
         condition: service_healthy
     networks:
       - fxtao_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   # Frontend Service (Production Build)
   web:
@@ -46,12 +79,20 @@ services:
         VITE_API_URL: ${VITE_API_URL}
     container_name: fxtao_web
     restart: always
+    init: true
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - '8080:80'
+      - '127.0.0.1:8080:80'
     depends_on:
       - api
     networks:
       - fxtao_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

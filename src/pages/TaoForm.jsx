@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '@/services/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Save, ArrowLeft, ArrowRight, Loader2, CheckCircle, Share2, Link as LinkIcon, MessageCircle } from 'lucide-react';
+import { Save, ArrowLeft, ArrowRight, Loader2, CheckCircle, Link as LinkIcon, MessageCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -15,11 +15,82 @@ import TaoStep2 from '../components/tao/steps/TaoStep2';
 import TaoStep3 from '../components/tao/steps/TaoStep3';
 import TaoStep4 from '../components/tao/steps/TaoStep4';
 import TaoStep5 from '../components/tao/steps/TaoStep5';
+import { DEFAULT_FINANCIAL_COMPOSITION_ITEMS, DEFAULT_INDIRECT_EXPENSE_ITEMS } from '../components/tao/taoDefaults';
 
 // Prisma returns enum names (step1, step2...) but frontend uses ('1', '2'...)
 const normalizeTaoStatus = (status) => {
   const map = { step1: '1', step2: '2', step3: '3', step4: '4', step5: '5', start: 'start' };
   return map[status] || status;
+};
+
+const STEP_ORDER = ['start', '1', '2', '3', '4', '5'];
+
+const getFurthestStep = (...steps) => {
+  const normalizedSteps = steps.map((step) => normalizeTaoStatus(step)).filter(Boolean);
+  if (!normalizedSteps.length) return 'start';
+
+  return normalizedSteps.reduce((furthest, current) => {
+    const currentIndex = STEP_ORDER.indexOf(current);
+    const furthestIndex = STEP_ORDER.indexOf(furthest);
+    return currentIndex > furthestIndex ? current : furthest;
+  }, 'start');
+};
+
+const DATE_INPUT_FIELDS = [
+  'opening_date',
+  'date_signature',
+  'date_mobilization',
+  'date_start',
+  'date_end',
+  'actual_start_date',
+  'actual_end_date',
+  'keys_delivery_date',
+  'requested_at',
+  'approved_at',
+  'sienge_registered_at',
+  'insurance_guarantee_date',
+  'insurance_construction_date',
+  'avcb_date',
+  'cnd_iss_date',
+  'cnd_inss_date',
+  'habite_se_date',
+];
+
+const normalizeDateInputValue = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') {
+    return value.includes('T') ? value.split('T')[0] : value;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().split('T')[0];
+  }
+  return value;
+};
+
+const normalizeTaoRecord = (tao) => {
+  const normalized = {
+    ...tao,
+    status: normalizeTaoStatus(tao?.status),
+    cost_centers: Array.isArray(tao?.cost_centers) ? tao.cost_centers : [],
+    payment_methods: Array.isArray(tao?.payment_methods) ? tao.payment_methods : [],
+    financial_composition_items: Array.isArray(tao?.financial_composition_items) && tao.financial_composition_items.length
+      ? tao.financial_composition_items
+      : DEFAULT_FINANCIAL_COMPOSITION_ITEMS,
+    indirect_expense_items: Array.isArray(tao?.indirect_expense_items) && tao.indirect_expense_items.length
+      ? tao.indirect_expense_items
+      : DEFAULT_INDIRECT_EXPENSE_ITEMS,
+    authorized_bank_account_ids: Array.isArray(tao?.authorized_bank_account_ids)
+      ? tao.authorized_bank_account_ids
+      : Array.isArray(tao?.authorized_bank_accounts)
+        ? tao.authorized_bank_accounts.map((entry) => entry.bank_account_id)
+        : [],
+  };
+
+  DATE_INPUT_FIELDS.forEach((field) => {
+    normalized[field] = normalizeDateInputValue(normalized[field]);
+  });
+
+  return normalized;
 };
 
 export default function TaoForm() {
@@ -64,11 +135,18 @@ export default function TaoForm() {
   // Sync data when loaded
   useEffect(() => {
     if (existingTao) {
-      const normalized = { ...existingTao, status: normalizeTaoStatus(existingTao.status) };
+      const normalized = normalizeTaoRecord(existingTao);
       setFormData(normalized);
       setCurrentStep(normalized.status || 'start');
     } else if (!id) {
-      setFormData({ status: 'start' });
+      setFormData({
+        status: 'start',
+        cost_centers: [],
+        authorized_bank_account_ids: [],
+        payment_methods: [],
+        financial_composition_items: DEFAULT_FINANCIAL_COMPOSITION_ITEMS,
+        indirect_expense_items: DEFAULT_INDIRECT_EXPENSE_ITEMS,
+      });
     }
   }, [existingTao, id]);
 
@@ -131,7 +209,7 @@ export default function TaoForm() {
       return result;
     },
     onSuccess: (savedData) => {
-      const normalizedData = { ...savedData, status: normalizeTaoStatus(savedData.status) };
+      const normalizedData = normalizeTaoRecord(savedData);
       toast.success("Dados salvos com sucesso!");
       queryClient.invalidateQueries(['taos']);
 
@@ -141,11 +219,15 @@ export default function TaoForm() {
       }
     },
     onError: (err) => {
-      toast.error(err.message || "Erro ao salvar dados.");
+      toast.error(err?.response?.data?.details || err?.response?.data?.error || err.message || "Erro ao salvar dados.");
     }
   });
 
   const handleSave = async (targetStep = null) => {
+    if (!canEdit) {
+      if (targetStep) setCurrentStep(targetStep);
+      return;
+    }
     // Validation for required fields
     if (!formData.project_name || !formData.project_name.trim()) {
       toast.error("O nome da obra é obrigatório para salvar.");
@@ -154,11 +236,15 @@ export default function TaoForm() {
 
     const dataToSave = { ...formData };
     if (targetStep) {
-      dataToSave.status = targetStep;
+      dataToSave.status = getFurthestStep(formData.status, targetStep);
     }
 
     try {
-      await mutation.mutateAsync(dataToSave);
+      const savedData = await mutation.mutateAsync(dataToSave);
+      if (savedData) {
+        const normalizedSaved = normalizeTaoRecord(savedData);
+        setFormData(normalizedSaved);
+      }
       if (targetStep) {
         setCurrentStep(targetStep);
       }
@@ -169,10 +255,9 @@ export default function TaoForm() {
   };
 
   const handleNext = () => {
-    const stepOrder = ['start', '1', '2', '3', '4', '5'];
-    const currentIndex = stepOrder.indexOf(currentStep);
-    if (currentIndex < stepOrder.length - 1) {
-      const nextStep = stepOrder[currentIndex + 1];
+    const currentIndex = STEP_ORDER.indexOf(currentStep);
+    if (currentIndex < STEP_ORDER.length - 1) {
+      const nextStep = STEP_ORDER[currentIndex + 1];
       handleSave(nextStep);
     } else {
       handleSave();
@@ -180,6 +265,10 @@ export default function TaoForm() {
   };
 
   const handleStepClick = (stepId) => {
+    if (!canEdit) {
+      setCurrentStep(stepId);
+      return;
+    }
     // Auto-save when switching steps manually
     if (id) {
       handleSave(stepId);
@@ -306,7 +395,7 @@ export default function TaoForm() {
         )}
       </div>
 
-      <TaoStepper currentStep={currentStep} onStepChange={handleStepClick} />
+      <TaoStepper currentStep={currentStep} completedThrough={formData.status || 'start'} onStepChange={handleStepClick} />
 
       <div className="mb-8">
         {renderStep()}
@@ -321,7 +410,7 @@ export default function TaoForm() {
         <Button
           variant="outline"
           onClick={() => handleSave(currentStep)}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || !canEdit}
         >
           <Save className="w-4 h-4 mr-2" />
           Salvar Rascunho
@@ -330,7 +419,7 @@ export default function TaoForm() {
         <Button
           className="bg-indigo-600 hover:bg-indigo-700 min-w-[120px]"
           onClick={handleNext}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || !canEdit}
         >
           {currentStep === '5' ? (
             <>

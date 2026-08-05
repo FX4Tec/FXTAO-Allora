@@ -11,6 +11,7 @@ exports.list = async (req, res) => {
                 full_name: true,
                 role: true,
                 is_active: true,
+                can_view_restricted_tao_fields: true,
                 created_at: true,
                 avatar_url: true,
                 auth_provider: true
@@ -25,7 +26,7 @@ exports.list = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const { email, password, full_name, role } = req.body;
+        const { email, password, full_name, role, can_view_restricted_tao_fields } = req.body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -39,14 +40,16 @@ exports.create = async (req, res) => {
                 email,
                 password_hash: hashedPassword,
                 full_name,
-                role: role || 'user'
+                role: role || 'user',
+                can_view_restricted_tao_fields: Boolean(can_view_restricted_tao_fields)
             },
             select: {
                 id: true,
                 email: true,
                 full_name: true,
                 role: true,
-                is_active: true
+                is_active: true,
+                can_view_restricted_tao_fields: true
             }
         });
 
@@ -58,7 +61,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     try {
-        const { full_name, role, password, is_active } = req.body;
+        const { full_name, role, password, is_active, can_view_restricted_tao_fields } = req.body;
         const userIdToUpdate = req.params.id;
         const loggedUserId = req.userId; // Assuming auth middleware sets this
 
@@ -73,6 +76,10 @@ exports.update = async (req, res) => {
             data.is_active = is_active;
         }
 
+        if (can_view_restricted_tao_fields !== undefined) {
+            data.can_view_restricted_tao_fields = can_view_restricted_tao_fields;
+        }
+
         if (password) {
             data.password_hash = await bcrypt.hash(password, 10);
         }
@@ -85,7 +92,8 @@ exports.update = async (req, res) => {
                 email: true,
                 full_name: true,
                 role: true,
-                is_active: true
+                is_active: true,
+                can_view_restricted_tao_fields: true
             }
         });
 

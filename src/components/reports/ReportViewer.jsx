@@ -1,62 +1,49 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowUpRight,
-  CheckCircle2,
-  FileText,
-  Printer,
-} from 'lucide-react';
+import { ArrowUpRight, FileText, Printer } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  formatCurrency,
   formatDateValue,
   getApprovalStatusLabel,
   getStatusLabel,
   normalizeStatus,
-  toNumber,
-  useReportResourceList,
   useReportTaoDetail,
 } from './useReportData';
 
-const PHASES = [
-  { id: 'start', title: 'Cadastro', subtitle: 'Dados iniciais da obra' },
-  { id: '1', title: 'Contrato', subtitle: 'Estrutura comercial e fiscal' },
-  { id: '2', title: 'Recebíveis', subtitle: 'Parcelas e equipe' },
-  { id: '3', title: 'Aditivos', subtitle: 'Complementos de contrato' },
-  { id: '4', title: 'Compliance', subtitle: 'Escopo e obrigações' },
-  { id: '5', title: 'Fechamento', subtitle: 'Contatos e anexos' },
+const REPORT_BLOCKS = [
+  { id: 'dados-iniciais', title: 'Dados iniciais', subtitle: 'Identificação, responsáveis e endereços' },
+  { id: 'faturamento', title: 'Faturamento', subtitle: 'Cadastro fiscal e documentos' },
+  { id: 'contratacao', title: 'Contratação', subtitle: 'Modelo comercial e rotina financeira' },
+  { id: 'financeiro-restrito', title: 'Financeiro restrito', subtitle: 'Campos sensíveis Allora', restricted: true },
+  { id: 'operacional', title: 'Operacional', subtitle: 'Checklist inicial de obra' },
+  { id: 'outros', title: 'Outros', subtitle: 'Documentos, anexos e aprovação' },
 ];
-
-const INSTALLMENT_TYPE_LABELS = {
-  direct: 'Direto',
-  consultancy: 'Consultoria',
-  construction: 'Construção',
-};
-
-const APPROVAL_SCOPE_LABELS = {
-  both: 'TAO e Aditivos',
-  tao: 'Apenas TAO',
-  additive: 'Apenas Aditivos',
-};
-
-const ADDITIVE_STATUS_LABELS = {
-  draft: 'Rascunho',
-  pending: 'Pendente',
-  approved: 'Aprovado',
-  rejected: 'Rejeitado',
-};
 
 function formatTextValue(value) {
   return value === null || value === undefined || value === '' ? '-' : value;
 }
 
 function formatCurrencyValue(value) {
-  return value === null || value === undefined || value === '' ? '-' : formatCurrency(value);
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return formatTextValue(value);
+  }
+
+  return `R$ ${numeric.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatPercentValue(value) {
@@ -64,26 +51,31 @@ function formatPercentValue(value) {
     return '-';
   }
 
-  return `${toNumber(value).toLocaleString('pt-BR', {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return formatTextValue(value);
+  }
+
+  return `${numeric.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}%`;
 }
 
 function formatDateTimeValue(value) {
-  if (!value) {
-    return '-';
-  }
+  if (!value) return '-';
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
+  if (Number.isNaN(date.getTime())) return '-';
 
   return date.toLocaleString('pt-BR');
 }
 
 function formatBooleanValue(value, truthy = 'Sim', falsy = 'Não') {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+
   return value ? truthy : falsy;
 }
 
@@ -107,29 +99,11 @@ function getApprovalBadgeClass(status) {
   }[status] || 'bg-slate-100 text-slate-700 border-slate-200';
 }
 
-function formatBankAccount(account) {
-  if (!account) {
-    return '-';
-  }
-
-  const pieces = [account.description, account.bank_name].filter(Boolean);
-
-  if (account.agency) {
-    pieces.push(`Ag. ${account.agency}`);
-  }
-
-  if (account.account_number) {
-    pieces.push(`Conta ${account.account_number}`);
-  }
-
-  return pieces.join(' | ');
-}
-
 function ReportField({ label, value, className }) {
   return (
     <div className={cn('report-field rounded-[18px] border border-slate-200 bg-white p-4', className)}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
-      <div className="mt-3 text-sm font-medium leading-6 text-slate-900 whitespace-pre-line">
+      <div className="mt-3 whitespace-pre-line text-sm font-medium leading-6 text-slate-900">
         {formatTextValue(value)}
       </div>
     </div>
@@ -140,8 +114,8 @@ function SummaryBox({ label, value, note }) {
   return (
     <div className="report-kpi rounded-[18px] border border-slate-200 bg-white p-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-3 text-[28px] font-bold tracking-tight text-slate-950">{formatTextValue(value)}</p>
-      {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
+      <p className="mt-3 text-[24px] font-bold tracking-tight text-slate-950">{formatTextValue(value)}</p>
+      {note ? <p className="mt-2 text-xs text-slate-500">{note}</p> : null}
     </div>
   );
 }
@@ -156,7 +130,7 @@ function SectionBanner({ number, title, description }) {
           </div>
           <div className="space-y-1">
             <h3 className="text-xl font-bold text-slate-950">{title}</h3>
-            {description && <p className="max-w-3xl text-sm leading-6 text-slate-600">{description}</p>}
+            {description ? <p className="max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
           </div>
         </div>
       </div>
@@ -164,22 +138,20 @@ function SectionBanner({ number, title, description }) {
   );
 }
 
+function DocumentSection({ number, title, description, children }) {
+  return (
+    <section className="report-document-section space-y-6 rounded-[24px] border border-slate-200 bg-white p-6">
+      <SectionBanner number={number} title={title} description={description} />
+      <div className="space-y-6">{children}</div>
+    </section>
+  );
+}
+
 function SubsectionTitle({ title, description }) {
   return (
     <div className="space-y-1">
       <h4 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-800">{title}</h4>
-      {description && <p className="text-sm text-slate-500">{description}</p>}
-    </div>
-  );
-}
-
-function TextPanel({ title, value, placeholder = 'Sem informação cadastrada.', className }) {
-  return (
-    <div className={cn('report-card rounded-[18px] border border-slate-200 bg-white p-5', className)}>
-      <h4 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-800">{title}</h4>
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">
-        {value || placeholder}
-      </p>
+      {description ? <p className="text-sm text-slate-500">{description}</p> : null}
     </div>
   );
 }
@@ -230,55 +202,30 @@ function DataTable({ columns, rows, emptyMessage }) {
   );
 }
 
-function PhaseStrip({ currentStatus }) {
-  const currentIndex = PHASES.findIndex((phase) => phase.id === currentStatus);
+function BlockStrip({ canViewRestricted }) {
+  const blocks = REPORT_BLOCKS.filter((block) => canViewRestricted || !block.restricted);
 
   return (
     <div className="report-phase-strip grid grid-cols-2 gap-3 lg:grid-cols-6">
-      {PHASES.map((phase, index) => {
-        const completed = currentIndex >= index;
-
-        return (
-          <div
-            key={phase.id}
-            className={cn(
-              'rounded-[18px] border px-4 py-3',
-              completed ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-white'
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className={cn(
-                  'mt-0.5 flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold',
-                  completed
-                    ? 'border-blue-200 bg-blue-700 text-white'
-                    : 'border-slate-200 bg-slate-100 text-slate-500'
-                )}
-              >
-                {completed ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold text-slate-900">{phase.title}</p>
-                <p className="text-xs leading-5 text-slate-500">{phase.subtitle}</p>
-              </div>
+      {blocks.map((block, index) => (
+        <div key={block.id} className="rounded-[18px] border border-blue-100 bg-blue-50 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-blue-200 bg-blue-700 text-xs font-bold text-white">
+              {index + 1}
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-slate-900">{block.title}</p>
+              <p className="text-xs leading-5 text-slate-500">{block.subtitle}</p>
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
 
-function DocumentSection({ number, title, description, children }) {
-  return (
-    <section className="report-document-section space-y-6 rounded-[24px] border border-slate-200 bg-white p-6">
-      <SectionBanner number={number} title={title} description={description} />
-      <div className="space-y-6">{children}</div>
-    </section>
-  );
-}
-
 export default function ReportViewer({ taos = [] }) {
+  const { user } = useAuth();
   const [selectedTaoId, setSelectedTaoId] = useState('');
 
   useEffect(() => {
@@ -293,64 +240,37 @@ export default function ReportViewer({ taos = [] }) {
   );
 
   const { data: tao, isLoading } = useReportTaoDetail(selectedTaoId);
-  const { data: bankAccounts = [] } = useReportResourceList('bank-accounts');
-  const { data: approvalHistory = [] } = useReportResourceList('tao-approval-history');
+  const canViewRestricted = Boolean(user?.can_view_restricted_tao_fields);
 
-  const bankAccountMap = useMemo(
-    () => new Map(bankAccounts.map((account) => [account.id, account])),
-    [bankAccounts]
-  );
+  const directBillingDocuments = tao?.direct_billing_document_items || [];
+  const initialChecklistItems = tao?.initial_checklist_items || [];
+  const checkedChecklistCount = initialChecklistItems.filter((item) => item.is_checked).length;
+  const checkedDocumentsCount = directBillingDocuments.filter((item) => item.is_checked).length;
 
-  const currentStatus = normalizeStatus(selectedSummary?.status);
-  const totalInstallments = tao?.installments?.reduce((sum, item) => sum + toNumber(item.value), 0) || 0;
-  const totalInstallmentsPaid = tao?.installments
-    ?.filter((item) => item.is_paid)
-    .reduce((sum, item) => sum + toNumber(item.value), 0) || 0;
-  const totalAdditives = tao?.additives?.reduce((sum, item) => sum + toNumber(item.value), 0) || 0;
-  const activeApprovers = tao?.approvers?.length || 0;
-  const additiveIds = new Set((tao?.additives || []).map((item) => item.id));
+  const clientContact = (tao?.contacts || []).find((contact) => contact.role === 'Contato Cliente');
+  const managerContact = (tao?.contacts || []).find((contact) => contact.role === 'Gerenciador');
+  const architectureContact = (tao?.contacts || []).find((contact) => contact.role === 'Arquitetura');
+  const reportContact = (tao?.contacts || []).find((contact) => contact.role === 'Contato para envio de relatorios');
+  const copyContact = (tao?.contacts || []).find((contact) => contact.role === 'Com copia');
+  const engineer = (tao?.team_members || []).find((member) => member.role === 'Engº Responsavel');
+  const master = (tao?.team_members || []).find((member) => member.role === 'Mestre de Obra');
 
-  const filteredHistory = approvalHistory
-    .filter((entry) => (
-      (entry.reference_type === 'tao' && entry.reference_id === tao?.id) ||
-      (entry.reference_type === 'additive' && additiveIds.has(entry.reference_id))
-    ))
-    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+  const documentRows = directBillingDocuments.map((item) => ({
+    key: item.document_key,
+    audience: item.audience,
+    document: item.document_label,
+    status: item.is_checked ? 'Marcado' : 'Não marcado',
+    notes: item.notes || '-',
+  }));
 
-  const consultancyBankAccount = bankAccountMap.get(tao?.bank_account_consultancy_id);
-  const constructionBankAccount = bankAccountMap.get(tao?.bank_account_construction_id);
-
-  const taxRows = [
-    { label: 'PIS', percent: tao?.tax_pis_percent, value: tao?.tax_pis_value },
-    { label: 'COFINS', percent: tao?.tax_cofins_percent, value: tao?.tax_cofins_value },
-    { label: 'CSLL', percent: tao?.tax_csll_percent, value: tao?.tax_csll_value },
-    { label: 'IR', percent: tao?.tax_ir_percent, value: tao?.tax_ir_value },
-    { label: 'ISS Retido pelo Cliente', percent: tao?.tax_iss_retained_client_percent, value: tao?.tax_iss_retained_client_value },
-    { label: 'ISS Recolhido pela Empresa', percent: tao?.tax_iss_collected_company_percent, value: tao?.tax_iss_collected_company_value },
-    { label: 'INSS Retido pelo Cliente', percent: tao?.tax_inss_retained_client_percent, value: tao?.tax_inss_retained_client_value },
-    { label: 'INSS Recolhido pela Empresa', percent: tao?.tax_inss_collected_company_percent, value: tao?.tax_inss_collected_company_value },
-    { label: 'COFINS Retido pelo Cliente', percent: tao?.tax_cofins_retained_client_percent, value: tao?.tax_cofins_retained_client_value },
-    { label: 'Dedução de Sinal', percent: tao?.tax_deduction_signal_percent, value: tao?.tax_deduction_signal_value },
-    { label: 'Retenção Contratual', percent: tao?.tax_contractual_retention_percent, value: tao?.tax_contractual_retention_value },
-  ].filter((row) => row.percent !== null || row.value !== null);
-
-  const complianceRows = [
-    {
-      item: 'Projeto Legal',
-      status: formatBooleanValue(tao?.scope_project_legal_status, 'Contratado', 'Não contratado'),
-      details: tao?.scope_project_legal_text,
-    },
-    {
-      item: 'AVCB',
-      status: formatBooleanValue(tao?.avcb_status, 'Ativo', 'Não informado'),
-      details: tao?.avcb_text,
-    },
-    {
-      item: 'Habite-se',
-      status: formatBooleanValue(tao?.habite_se_status, 'Ativo', 'Não informado'),
-      details: '-',
-    },
-  ];
+  const checklistRows = initialChecklistItems.map((item) => ({
+    key: item.item_key,
+    item: item.item_label,
+    category: item.category,
+    status: item.is_checked ? 'Concluído' : 'Pendente',
+    selected_option: item.selected_option || '-',
+    notes: item.notes || '-',
+  }));
 
   if (taos.length === 0) {
     return (
@@ -369,7 +289,7 @@ export default function ReportViewer({ taos = [] }) {
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700">Visualizar Relatório</p>
             <p className="text-sm text-slate-500">
-              Documento executivo com diagramação de relatório, pronto para leitura em tela, impressão e PDF.
+              Documento executivo alinhado ao formulário Allora, pronto para leitura em tela, impressão e PDF.
             </p>
           </div>
           <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
@@ -391,14 +311,14 @@ export default function ReportViewer({ taos = [] }) {
               <Printer className="mr-2 h-4 w-4" />
               Imprimir / PDF
             </Button>
-            {selectedSummary && (
+            {selectedSummary ? (
               <Button asChild variant="outline">
                 <Link to={`${createPageUrl('TaoForm')}?id=${selectedSummary.id}`}>
                   <FileText className="mr-2 h-4 w-4" />
                   Abrir TAO
                 </Link>
               </Button>
-            )}
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -411,7 +331,7 @@ export default function ReportViewer({ taos = [] }) {
                 <div className="space-y-1">
                   <p className="text-[32px] font-semibold tracking-tight text-slate-400">FX TAO</p>
                   <p className="text-xs font-semibold uppercase tracking-[0.34em] text-blue-700">
-                    Relatório Executivo de Obra
+                    Relatório executivo Allora
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -419,19 +339,19 @@ export default function ReportViewer({ taos = [] }) {
                     {selectedSummary?.project_name || 'Relatório da Obra'}
                   </h2>
                   <p className="max-w-3xl text-sm leading-7 text-slate-600">
-                    Documento consolidado da TAO com visão por etapa, pronto para apresentação, impressão e geração em PDF.
+                    Documento consolidado com a nova estrutura da TAO Allora, organizado por blocos operacionais e pronto para apresentação.
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-3 lg:min-w-[360px]">
                 <div className="grid grid-cols-2 gap-3">
-                  <ReportField label="ERP" value={selectedSummary?.erp_number} />
+                  <ReportField label="Codigo da obra" value={selectedSummary?.erp_number} />
                   <ReportField label="Emissão" value={formatDateValue(new Date())} />
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="report-field rounded-[18px] border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Status da Obra</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Status da TAO</p>
                     <div className="mt-3">
                       <Badge className={cn('border text-sm', getStatusBadgeClass(selectedSummary?.status))}>
                         {getStatusLabel(selectedSummary?.status)}
@@ -452,7 +372,7 @@ export default function ReportViewer({ taos = [] }) {
 
             <div className="h-[2px] w-full bg-gradient-to-r from-slate-900 via-blue-700 to-slate-200" />
 
-            <PhaseStrip currentStatus={currentStatus} />
+            <BlockStrip canViewRestricted={canViewRestricted} />
           </div>
         </header>
 
@@ -461,328 +381,227 @@ export default function ReportViewer({ taos = [] }) {
         ) : (
           <div className="report-document-body space-y-6 bg-slate-50/70 p-6 md:p-8 print:bg-white">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <SummaryBox label="Contrato Total" value={formatCurrency(tao.value_total_contract)} />
-              <SummaryBox label="Parcelas" value={`${tao.installments?.length || 0}`} note={formatCurrency(totalInstallments)} />
-              <SummaryBox label="Aditivos" value={formatCurrency(totalAdditives)} />
-              <SummaryBox label="Aprovadores" value={`${activeApprovers}`} />
+              <SummaryBox label="Centro de Custo" value={tao.center_cost_client} />
+              <SummaryBox label="Modelo de Faturamento" value={tao.billing_model} />
+              <SummaryBox label="Modelo de Contratação" value={tao.hiring_regime} />
+              <SummaryBox
+                label="Checklist Inicial"
+                value={`${checkedChecklistCount}/${initialChecklistItems.length || 0}`}
+                note={`${checkedDocumentsCount} documento(s) de faturamento marcado(s)`}
+              />
             </div>
 
             <DocumentSection
               number="1"
-              title="Cadastro e Abertura"
-              description="Dados-base da obra, identificação principal, endereços, gestão e estrutura inicial de aprovação."
+              title="Dados iniciais da obra"
+              description="Identificação principal, responsáveis, equipe-base e dados operacionais de abertura."
             >
-              <div className="space-y-4">
-                <SubsectionTitle title="Identificação da TAO" description="Referências principais do cadastro e do autor da abertura." />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                  <ReportField label="Obra" value={tao.project_name} />
-                  <ReportField label="ID TAO" value={tao.id ? `#${tao.id.slice(-4)}` : '-'} />
-                  <ReportField label="ERP" value={tao.erp_number} />
-                  <ReportField label="Criado por" value={tao.created_by?.full_name || tao.created_by?.email} />
-                  <ReportField label="Segmento" value={tao.segment} />
-                  <ReportField label="Tipo de Projeto" value={tao.project_type} />
-                  <ReportField label="Área" value={tao.area_m2 ? `${tao.area_m2} m²` : '-'} />
-                  <ReportField label="Contrato Consultoria" value={formatBooleanValue(tao.contract_company_consultancy)} />
-                  <ReportField label="Data de Criação" value={formatDateTimeValue(tao.created_at)} />
-                  <ReportField label="Última Atualização" value={formatDateTimeValue(tao.updated_at)} />
-                  <ReportField label="Latitude" value={tao.latitude} />
-                  <ReportField label="Longitude" value={tao.longitude} />
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <ReportField label="Sigla/nome da obra" value={tao.project_name} />
+                <ReportField label="Codigo da obra" value={tao.erp_number} />
+                <ReportField label="CENTRO DE CUSTO" value={tao.center_cost_client} />
+                <ReportField label="Codigo centro de custo Allora" value={tao.center_cost_allora} />
+                <ReportField label="Projeto #" value={tao.project_code} />
+                <ReportField label="Nº Proposta" value={tao.proposal_number} />
+                <ReportField label="Empresa" value={tao.company_code} />
+                <ReportField label="Grupo" value={tao.project_group} />
+                <ReportField label="Data inicio de obra" value={formatDateValue(tao.date_start)} />
+                <ReportField label="Termino previsto" value={formatDateValue(tao.date_end)} />
+                <ReportField label="Data de inicio real" value={formatDateValue(tao.actual_start_date)} />
+                <ReportField label="Data de termino real" value={formatDateValue(tao.actual_end_date)} />
+                <ReportField label="Tempo de obra" value={tao.duration_months ? `${tao.duration_months} mês(es)` : '-'} />
+                <ReportField label="Criado por" value={tao.created_by?.full_name || tao.created_by?.email} />
+                <ReportField label="Criado em" value={formatDateTimeValue(tao.created_at)} />
+                <ReportField label="Última atualização" value={formatDateTimeValue(tao.updated_at)} />
               </div>
 
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                 <div className="space-y-4">
-                  <SubsectionTitle title="Endereço de Faturamento" />
+                  <SubsectionTitle title="Equipe e responsáveis" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <ReportField label="Razão Social" value={tao.billing_company_name} />
-                    <ReportField label="CNPJ" value={tao.billing_cnpj} />
-                    <ReportField label="Endereço" value={tao.billing_address} />
-                    <ReportField label="Bairro" value={tao.billing_neighborhood} />
-                    <ReportField label="Cidade" value={tao.billing_city} />
-                    <ReportField label="UF" value={tao.billing_state} />
-                    <ReportField label="CEP" value={tao.billing_zip} />
-                    <ReportField label="Não Estabelecido" value={formatBooleanValue(tao.billing_not_established)} />
-                    <ReportField label="Inscrição Estadual" value={tao.billing_ie} />
-                    <ReportField label="Inscrição Municipal" value={tao.billing_im} />
-                    <ReportField label="DRM" value={tao.billing_drm} />
+                    <ReportField label="Contato Cliente" value={[clientContact?.name, clientContact?.email, clientContact?.phone].filter(Boolean).join('\n')} />
+                    <ReportField label="Gerenciador" value={tao.has_manager ? [managerContact?.name, managerContact?.email, managerContact?.phone].filter(Boolean).join('\n') : 'Não'} />
+                    <ReportField label="Arquitetura" value={tao.has_architecture ? [architectureContact?.name, architectureContact?.email, architectureContact?.phone].filter(Boolean).join('\n') : 'Não'} />
+                    <ReportField label="Engº Responsavel" value={[engineer?.name, engineer?.email, engineer?.team_type].filter(Boolean).join('\n')} />
+                    <ReportField label="Mestre de Obra" value={[master?.name, master?.email, master?.team_type].filter(Boolean).join('\n')} />
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <SubsectionTitle title="Obra, Gestão e Bancos" />
+                  <SubsectionTitle title="Local e complementos" />
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <ReportField label="Endereço da Obra" value={tao.construction_address} />
-                    <ReportField label="Bairro da Obra" value={tao.construction_neighborhood} />
-                    <ReportField label="Cidade da Obra" value={tao.construction_city} />
-                    <ReportField label="UF da Obra" value={tao.construction_state} />
-                    <ReportField label="CEP da Obra" value={tao.construction_zip} />
-                    <ReportField label="Empresa Gestora" value={tao.manager_company_name} />
-                    <ReportField label="Endereço da Gestão" value={tao.manager_address} />
-                    <ReportField label="Telefone da Gestão" value={tao.manager_phone} />
-                    <ReportField label="Conta Consultoria" value={formatBankAccount(consultancyBankAccount)} />
-                    <ReportField label="Conta Construção" value={formatBankAccount(constructionBankAccount)} />
+                    <ReportField label="Local" value={tao.construction_address} />
+                    <ReportField label="Cidade" value={tao.construction_city} />
+                    <ReportField label="UF" value={tao.construction_state} />
+                    <ReportField label="CEP" value={tao.construction_zip} />
+                    <ReportField label="Outros centros de custo + codigo da empresa" value={tao.extra_center_costs_client} className="md:col-span-2" />
                   </div>
                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <SubsectionTitle title="Estrutura de Aprovação" />
-                <DataTable
-                  emptyMessage="Nenhum aprovador configurado para esta obra."
-                  rows={tao.approvers || []}
-                  columns={[
-                    { header: 'Nível', render: (row) => <span className="font-semibold text-slate-900">{row.level}</span>, cellClassName: 'w-24' },
-                    { header: 'Aprovador', render: (row) => row.user_email || '-' },
-                    { header: 'Escopo', render: (row) => APPROVAL_SCOPE_LABELS[row.scope] || row.scope },
-                  ]}
-                />
               </div>
             </DocumentSection>
 
             <DocumentSection
               number="2"
-              title="Contrato e Financeiro"
-              description="Estrutura contratual, valores, cronograma macro e composição tributária da obra."
+              title="Modelo de faturamento"
+              description="Dados cadastrais de faturamento e documentação exigida para o processo comercial."
             >
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="space-y-4">
-                  <SubsectionTitle title="Detalhes do Contrato" />
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <ReportField label="Regime de Contratação" value={tao.hiring_regime} />
-                    <ReportField label="Modo de Cálculo" value={tao.calculation_mode === 'auto' ? 'Automático' : 'Manual'} />
-                    <ReportField label="Assinatura" value={formatDateValue(tao.date_signature)} />
-                    <ReportField label="Mobilização" value={formatDateValue(tao.date_mobilization)} />
-                    <ReportField label="Início da Obra" value={formatDateValue(tao.date_start)} />
-                    <ReportField label="Término da Obra" value={formatDateValue(tao.date_end)} />
-                  </div>
-                </div>
-
-                <TextPanel title="Descrição Contratual" value={tao.contract_description} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <SummaryBox label="Faturamento Direto" value={formatCurrency(tao.value_billing_direct)} />
-                <SummaryBox label="Consultoria" value={formatCurrency(tao.value_billing_consultancy)} />
-                <SummaryBox label="Construção" value={formatCurrency(tao.value_billing_construction)} />
-                <SummaryBox label="Impostos Totais" value={formatCurrency(tao.value_taxes)} />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <ReportField label="Nome / Razao Social" value={tao.billing_company_name} />
+                <ReportField label="CNPJ/CPF" value={tao.billing_cnpj} />
+                <ReportField label="Modelo de Faturamento" value={tao.billing_model} />
+                <ReportField label="Endereco completo" value={tao.billing_address} className="md:col-span-2" />
+                <ReportField label="Restricao de entrega" value={formatBooleanValue(tao.has_delivery_restriction)} />
+                <ReportField label="Restricao de entrega - Quais" value={tao.delivery_restriction_notes} className="md:col-span-3" />
+                <ReportField label="Bairro" value={tao.billing_neighborhood} />
+                <ReportField label="Cidade do faturamento" value={tao.billing_city} />
+                <ReportField label="Estado" value={tao.billing_state} />
+                <ReportField label="CEP do faturamento" value={tao.billing_zip} />
               </div>
 
               <div className="space-y-4">
-                <SubsectionTitle title="Composição Financeira" />
+                <SubsectionTitle title="Documentação para faturamento direto" description="Itens consolidados da nova estrutura Allora para cliente PF e cliente PJ." />
                 <DataTable
-                  emptyMessage="Nenhuma composição financeira disponível."
-                  rows={[
-                    { key: 'contract', label: 'Contrato Total', value: tao.value_total_contract },
-                    { key: 'direct', label: 'Faturamento Direto', value: tao.value_billing_direct },
-                    { key: 'consultancy', label: 'Faturamento Consultoria', value: tao.value_billing_consultancy },
-                    { key: 'construction', label: 'Faturamento Construção', value: tao.value_billing_construction },
-                    { key: 'team', label: 'Equipe Técnica', value: tao.value_team_technical },
-                    { key: 'cost', label: 'Custo de Construção', value: tao.value_cost_construction },
-                    { key: 'rate1', label: 'Rateável 1', value: tao.value_rateable_1 },
-                    { key: 'rate2', label: 'Rateável 2', value: tao.value_rateable_2 },
-                    { key: 'brevenue', label: 'B Revenue', value: tao.value_b_revenue },
-                  ].filter((row) => row.value !== null && row.value !== undefined && row.value !== '')}
+                  emptyMessage="Nenhum item de documentação disponível."
+                  rows={documentRows}
                   columns={[
-                    { header: 'Indicador', key: 'label' },
-                    { header: 'Valor', render: (row) => <span className="font-semibold text-slate-900">{formatCurrencyValue(row.value)}</span>, cellClassName: 'w-52 text-right' },
+                    { header: 'Público', key: 'audience', cellClassName: 'w-40' },
+                    { header: 'Documento', key: 'document' },
+                    { header: 'Status', key: 'status', cellClassName: 'w-32' },
+                    { header: 'Observações', key: 'notes', cellClassName: 'w-[35%]' },
                   ]}
-                />
-              </div>
-
-              <div className="space-y-4">
-                <SubsectionTitle title="Estrutura Tributária" />
-                <DataTable
-                  emptyMessage="Nenhum tributo informado."
-                  rows={taxRows}
-                  columns={[
-                    { header: 'Tributo', key: 'label' },
-                    { header: 'Percentual', render: (row) => formatPercentValue(row.percent), cellClassName: 'w-40 text-right' },
-                    { header: 'Valor', render: (row) => <span className="font-semibold text-slate-900">{formatCurrencyValue(row.value)}</span>, cellClassName: 'w-44 text-right' },
-                  ]}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <TextPanel title="Procedimento OME" value={tao.ome_procedure} />
-                <TextPanel
-                  title="Responsabilidade de Projetos"
-                  value={tao.ome_billing_company ? 'Empresa responsável pelos projetos.' : 'Cliente responsável pelos projetos.'}
                 />
               </div>
             </DocumentSection>
 
             <DocumentSection
               number="3"
-              title="Recebíveis e Equipe"
-              description="Cronograma financeiro das parcelas e quadro operacional vinculado à obra."
+              title="Modelo de contratação"
+              description="Estrutura comercial da obra, rotina de relatórios e condicionantes operacionais do contrato."
             >
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <SummaryBox label="Parcelas Cadastradas" value={`${tao.installments?.length || 0}`} />
-                <SummaryBox label="Valor em Parcelas" value={formatCurrency(totalInstallments)} />
-                <SummaryBox label="Recebido" value={formatCurrency(totalInstallmentsPaid)} />
-                <SummaryBox label="Equipe" value={`${tao.team_members?.length || 0}`} />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <ReportField label="Modelo de Contratacao orcamento" value={tao.budget_model} />
+                <ReportField label="Modelo de Contratacao" value={tao.hiring_regime} />
+                <ReportField label="Detalhe da Contratacao" value={tao.hiring_regime_detail} />
+                <ReportField label="Periodo de envio de relatorios" value={tao.report_frequency} />
+                <ReportField label="Necessidade de envio fisico" value={formatBooleanValue(tao.requires_physical_delivery)} />
+                <ReportField label="Endereco de envio fisico" value={tao.physical_delivery_address} />
+                <ReportField label="Data de corte para emissao de notas fiscais" value={formatBooleanValue(tao.has_invoice_cutoff)} />
+                <ReportField label="Qual dia" value={tao.invoice_cutoff_day} />
+                <ReportField label="Prazo para equipe de obras enviar as notas ao financeiro" value={tao.notes_to_finance_deadline} />
+                <ReportField label="Dia de envio do relatorio ao cliente" value={tao.report_send_day} />
+                <ReportField label="Data de pagamento a partir do envio do relatorio" value={tao.payment_after_report_terms} className="md:col-span-2" />
+                <ReportField label="Programacao financeira" value={tao.financial_schedule_notes} className="md:col-span-3" />
               </div>
 
-              <div className="space-y-4">
-                <SubsectionTitle title="Parcelas" />
-                <DataTable
-                  emptyMessage="Nenhuma parcela cadastrada para esta obra."
-                  rows={tao.installments || []}
-                  columns={[
-                    { header: 'Descrição', key: 'description' },
-                    { header: 'Tipo', render: (row) => INSTALLMENT_TYPE_LABELS[row.type] || row.type, cellClassName: 'w-36' },
-                    { header: 'Vencimento', render: (row) => formatDateValue(row.due_date), cellClassName: 'w-32' },
-                    {
-                      header: 'Status',
-                      render: (row) => (
-                        <span className={cn(
-                          'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
-                          row.is_paid ? 'border-emerald-200 bg-emerald-100 text-emerald-700' : 'border-amber-200 bg-amber-100 text-amber-700'
-                        )}>
-                          {row.is_paid ? 'Pago' : 'Pendente'}
-                        </span>
-                      ),
-                      cellClassName: 'w-32',
-                    },
-                    { header: 'Pagamento', render: (row) => formatDateValue(row.paid_date), cellClassName: 'w-32' },
-                    { header: 'Valor', render: (row) => <span className="font-semibold text-slate-900">{formatCurrencyValue(row.value)}</span>, cellClassName: 'w-40 text-right' },
-                  ]}
-                />
-              </div>
+              {tao.budget_model === 'Preco Fechado' ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <SummaryBox label="Valor final negociado" value={formatCurrencyValue(tao.value_total_contract)} />
+                  <ReportField label="Forma de Pagamento" value={tao.payment_terms_text} />
+                </div>
+              ) : null}
 
-              <div className="space-y-4">
-                <SubsectionTitle title="Equipe da Obra" />
-                <DataTable
-                  emptyMessage="Nenhum membro de equipe cadastrado."
-                  rows={tao.team_members || []}
-                  columns={[
-                    { header: 'Nome', key: 'name' },
-                    { header: 'Função', render: (row) => row.role || '-', cellClassName: 'w-40' },
-                    { header: 'Tipo', render: (row) => row.team_type || '-', cellClassName: 'w-40' },
-                    { header: 'Contato', render: (row) => row.email || '-', cellClassName: 'w-56' },
-                  ]}
-                />
-              </div>
+              {tao.hiring_regime === 'Administracao' ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <ReportField label="Programacao de envio financeiro" value={tao.admin_financial_schedule_text} />
+                  <ReportField label="Observacoes Administracao" value={tao.admin_notes} />
+                </div>
+              ) : null}
             </DocumentSection>
 
+            {canViewRestricted ? (
+              <DocumentSection
+                number="4"
+                title="Financeiro restrito"
+                description="Campos sensíveis da Allora exibidos somente para usuários autorizados."
+              >
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <ReportField label="% ADM sobre orcamento" value={formatPercentValue(tao.restricted_admin_percent)} />
+                  <ReportField label="Imposto: incluso ou calcular sobre o percentual" value={tao.restricted_tax_mode} />
+                  <ReportField label="ADM fixa ao mes com imposto" value={formatCurrencyValue(tao.restricted_admin_monthly_value)} />
+                  <ReportField label="Equipe ao mes com imposto" value={formatCurrencyValue(tao.restricted_team_monthly_value)} />
+                  <ReportField label="Flag possui orcamento" value={formatBooleanValue(tao.has_budget_sheet, 'Possui orcamento', 'Nao possui orcamento')} />
+                  <ReportField label="Adm total prevista com imposto" value={formatCurrencyValue(tao.restricted_admin_total_estimated)} />
+                  <ReportField label="Equipe total prevista com imposto" value={formatCurrencyValue(tao.value_team_technical)} />
+                  <ReportField label="Valor mensal do engenheiro com imposto" value={formatCurrencyValue(tao.restricted_engineer_monthly_value)} />
+                  <ReportField label="Valor mensal do mestre com imposto" value={formatCurrencyValue(tao.restricted_master_monthly_value)} />
+                  <ReportField label="Custo de obra estimado" value={formatCurrencyValue(tao.value_cost_construction)} />
+                  <ReportField label="Valor estimado total da obra" value={formatCurrencyValue(tao.value_total_contract)} />
+                  <ReportField label="Cliente aceita reembolsos" value={formatBooleanValue(tao.accepts_reimbursements)} />
+                  <ReportField label="Observacao sobre reembolsos" value={tao.accepts_reimbursements_notes} className="md:col-span-2" />
+                  <ReportField label="Cliente aceita pagamentos de excecao fora do prazo" value={formatBooleanValue(tao.accepts_exception_payments)} />
+                  <ReportField label="Observacao sobre excecoes" value={tao.accepts_exception_payments_notes} className="md:col-span-2" />
+                  <ReportField label="Adm sobre itens especiais" value={tao.restricted_special_items_admin_text} className="md:col-span-3" />
+                  <ReportField label="Observacoes Financeiro Restrito" value={tao.restricted_notes} className="md:col-span-3" />
+                  <ReportField label="Envio de relatorios" value={tao.reports_delivery_notes} className="md:col-span-3" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <ReportField label="Contato para envio de relatorios" value={[reportContact?.name, reportContact?.email, reportContact?.phone].filter(Boolean).join('\n')} />
+                  <ReportField label="Com copia" value={[copyContact?.name, copyContact?.email, copyContact?.phone].filter(Boolean).join('\n')} />
+                </div>
+              </DocumentSection>
+            ) : null}
+
             <DocumentSection
-              number="4"
-              title="Aditivos"
-              description="Acompanhamento dos complementos contratuais com status, data e valor."
+              number={canViewRestricted ? '5' : '4'}
+              title="Operacional registro de obra"
+              description="Checklist inicial consolidado conforme a estrutura da planilha operacional Allora."
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <SummaryBox label="Quantidade" value={`${tao.additives?.length || 0}`} />
-                <SummaryBox label="Aprovados" value={`${tao.additives?.filter((item) => item.approval_status === 'approved').length || 0}`} />
-                <SummaryBox label="Pendentes" value={`${tao.additives?.filter((item) => item.approval_status === 'pending').length || 0}`} />
-                <SummaryBox label="Valor Total" value={formatCurrency(totalAdditives)} />
+                <ReportField label="Cliente" value={tao.project_name} />
+                <ReportField label="Empresa" value={tao.company_code} />
+                <ReportField label="Centro de custo Allora" value={tao.center_cost_allora} />
+                <ReportField label="Necessidade de CNO" value={formatBooleanValue(tao.requires_cno)} />
+                <ReportField label="CNO Nº" value={tao.obra_cno} />
+                <ReportField label="SFOBRAS" value={tao.obra_sfobras} />
               </div>
 
               <DataTable
-                emptyMessage="Nenhum aditivo cadastrado para esta obra."
-                rows={tao.additives || []}
+                emptyMessage="Nenhum item de checklist disponível."
+                rows={checklistRows}
                 columns={[
-                  { header: 'ID', render: (row) => `#${row.id.slice(-4)}`, cellClassName: 'w-24 font-mono text-xs text-slate-500' },
-                  { header: 'Descrição', key: 'description' },
-                  {
-                    header: 'Status',
-                    render: (row) => (
-                      <span className={cn(
-                        'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
-                        row.approval_status === 'approved' && 'border-emerald-200 bg-emerald-100 text-emerald-700',
-                        row.approval_status === 'rejected' && 'border-red-200 bg-red-100 text-red-700',
-                        row.approval_status === 'pending' && 'border-amber-200 bg-amber-100 text-amber-700',
-                        !row.approval_status && 'border-slate-200 bg-slate-100 text-slate-700'
-                      )}>
-                        {ADDITIVE_STATUS_LABELS[row.approval_status] || row.approval_status || 'Rascunho'}
-                      </span>
-                    ),
-                    cellClassName: 'w-36',
-                  },
-                  { header: 'Data', render: (row) => formatDateValue(row.approval_date), cellClassName: 'w-32' },
-                  { header: 'Valor', render: (row) => <span className="font-semibold text-slate-900">{formatCurrencyValue(row.value)}</span>, cellClassName: 'w-40 text-right' },
+                  { header: 'Item', key: 'item' },
+                  { header: 'Categoria', key: 'category', cellClassName: 'w-44' },
+                  { header: 'Status', key: 'status', cellClassName: 'w-28' },
+                  { header: 'Opção', key: 'selected_option', cellClassName: 'w-36' },
+                  { header: 'Observações', key: 'notes', cellClassName: 'w-[35%]' },
                 ]}
               />
             </DocumentSection>
 
             <DocumentSection
-              number="5"
-              title="Compliance e Obrigações"
-              description="Itens técnico-legais, licenças e cláusulas operacionais relevantes da TAO."
-            >
-              <div className="space-y-4">
-                <SubsectionTitle title="Checklist de Compliance" />
-                <DataTable
-                  emptyMessage="Nenhum item de compliance informado."
-                  rows={complianceRows}
-                  columns={[
-                    { header: 'Item', key: 'item' },
-                    { header: 'Status', key: 'status', cellClassName: 'w-44' },
-                    { header: 'Detalhes', render: (row) => row.details || '-', cellClassName: 'w-[45%]' },
-                  ]}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <ReportField label="Projeto Legal" value={formatBooleanValue(tao.scope_project_legal_status, 'Contratado', 'Não contratado')} />
-                <ReportField label="AVCB" value={formatBooleanValue(tao.avcb_status, 'Ativo', 'Não informado')} />
-                <ReportField label="Habite-se" value={formatBooleanValue(tao.habite_se_status, 'Ativo', 'Não informado')} />
-                <ReportField label="Projetos por Conta da Empresa" value={formatBooleanValue(tao.ome_billing_company)} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <TextPanel title="Projeto Legal" value={tao.scope_project_legal_text} />
-                <TextPanel title="AVCB" value={tao.avcb_text} />
-                <TextPanel title="Obrigações / Multas / Medições" value={[tao.obligations_text, tao.fines_text, tao.measurements_text].filter(Boolean).join('\n\n')} />
-              </div>
-            </DocumentSection>
-
-            <DocumentSection
-              number="6"
-              title="Documentos e Fechamento"
-              description="Links, contatos, anexos e histórico operacional de suporte ao fechamento da obra."
+              number={canViewRestricted ? '6' : '5'}
+              title="Outros e documentos"
+              description="Fechamento do cadastro, documentação complementar, anexos e configuração de aprovação."
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <SummaryBox label="Contatos" value={`${tao.contacts?.length || 0}`} />
+                <SummaryBox label="Aprovadores" value={`${tao.approvers?.length || 0}`} />
                 <SummaryBox label="Anexos" value={`${tao.attachments?.length || 0}`} />
-                <SummaryBox label="Histórico de Aprovação" value={`${filteredHistory.length}`} />
-                <SummaryBox label="SharePoint" value={tao.sharepoint_url ? 'Disponível' : 'Não informado'} />
+                <SummaryBox label="Checklist marcado" value={`${checkedChecklistCount}`} />
+                <SummaryBox label="Documentos marcados" value={`${checkedDocumentsCount}`} />
               </div>
 
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="space-y-4">
-                  <SubsectionTitle title="SharePoint e Observações" />
-                  <div className="report-card rounded-[18px] border border-slate-200 bg-white p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-900">URL SharePoint</p>
-                        <p className="break-all text-sm text-slate-600">{formatTextValue(tao.sharepoint_url)}</p>
-                      </div>
-                      {tao.sharepoint_url && (
-                        <Button asChild variant="outline" size="sm" className="print:hidden">
-                          <a href={tao.sharepoint_url} target="_blank" rel="noreferrer">
-                            Abrir
-                            <ArrowUpRight className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <TextPanel title="Observações Gerais" value={tao.observations_general} />
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <ReportField label="Contrato com o cliente" value={tao.client_contract_status} />
+                <ReportField label="Data de assinatura" value={formatDateValue(tao.date_signature)} />
+                <ReportField label="Seguro de obra" value={tao.work_insurance_status} />
+                <ReportField label="Vigencia da apolice" value={tao.work_insurance_validity} />
+                <ReportField label="ART" value={tao.art_status} />
+                <ReportField label="URL SharePoint" value={tao.sharepoint_url} />
+                <ReportField label="Observacoes gerais" value={tao.observations_general} className="md:col-span-3" />
+              </div>
 
-                <div className="space-y-4">
-                  <SubsectionTitle title="Contatos da Obra" />
-                  <DataTable
-                    emptyMessage="Nenhum contato cadastrado."
-                    rows={tao.contacts || []}
-                    columns={[
-                      { header: 'Nome', key: 'name' },
-                      { header: 'Cargo', render: (row) => row.role || '-', cellClassName: 'w-40' },
-                      { header: 'Email', render: (row) => row.email || '-', cellClassName: 'w-56' },
-                      { header: 'Telefone', render: (row) => row.phone || '-', cellClassName: 'w-36' },
-                    ]}
-                  />
-                </div>
+              <div className="space-y-4">
+                <SubsectionTitle title="Configuração de aprovação" />
+                <DataTable
+                  emptyMessage="Nenhum aprovador configurado para esta obra."
+                  rows={tao.approvers || []}
+                  columns={[
+                    { header: 'Nível', render: (row) => <span className="font-semibold text-slate-900">{row.level}</span>, cellClassName: 'w-24' },
+                    { header: 'Aprovador', render: (row) => row.user_email || '-' },
+                    { header: 'Escopo', render: (row) => row.scope || '-', cellClassName: 'w-32' },
+                  ]}
+                />
               </div>
 
               <div className="space-y-4">
@@ -812,37 +631,6 @@ export default function ReportViewer({ taos = [] }) {
                     },
                   ]}
                 />
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="space-y-4">
-                  <SubsectionTitle title="Histórico de Aprovação" />
-                  <DataTable
-                    emptyMessage="Nenhum evento de aprovação registrado."
-                    rows={filteredHistory}
-                    columns={[
-                      { header: 'Data', render: (row) => formatDateTimeValue(row.created_at), cellClassName: 'w-44' },
-                      { header: 'Responsável', render: (row) => row.approver_email || '-', cellClassName: 'w-52' },
-                      { header: 'Ação', render: (row) => row.action || '-', cellClassName: 'w-28' },
-                      { header: 'Nível', render: (row) => row.level ?? '-', cellClassName: 'w-20 text-center' },
-                      { header: 'Comentários', render: (row) => row.comments || '-', cellClassName: 'w-[35%]' },
-                    ]}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <SubsectionTitle title="Logs do Processo" />
-                  <DataTable
-                    emptyMessage="Nenhum log registrado."
-                    rows={tao.logs || []}
-                    columns={[
-                      { header: 'Data', render: (row) => formatDateTimeValue(row.created_at), cellClassName: 'w-44' },
-                      { header: 'Usuário', render: (row) => row.user_email || '-', cellClassName: 'w-52' },
-                      { header: 'Ação', render: (row) => row.action || '-', cellClassName: 'w-24' },
-                      { header: 'Detalhes', render: (row) => row.details || '-', cellClassName: 'w-[40%]' },
-                    ]}
-                  />
-                </div>
               </div>
             </DocumentSection>
           </div>

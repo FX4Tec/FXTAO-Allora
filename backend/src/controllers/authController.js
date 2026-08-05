@@ -22,6 +22,7 @@ exports.register = async (req, res) => {
                 password_hash,
                 full_name,
                 role: role || 'user',
+                can_view_restricted_tao_fields: Boolean(req.body.can_view_restricted_tao_fields),
             },
         });
 

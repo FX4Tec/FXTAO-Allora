@@ -3,6 +3,15 @@
 **/build
 .git
 .env
+.env.*
+**/.env
+**/.env.*
 .vscode
 coverage
 deploy/postgres_data
+backups
+aderenciaAllora
+*.dump
+*.sql
+*.log
+IA_mem.md

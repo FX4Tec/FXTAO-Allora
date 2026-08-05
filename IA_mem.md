@@ -504,3 +504,485 @@ Com a `deploy key` ja instalada no GitHub, conectar esta instancia ao repositori
 - Nenhum arquivo funcional da aplicacao em producao foi alterado para realizar a conexao com o GitHub; a operacao concentrou-se em metadados Git e exclusoes locais de versionamento.
 - Backup do arquivo de memoria criado antes desta atualizacao em:
   - `/opt/FXTAO/backups/20260325-1710-git-push/IA_mem.md.bak`
+
+### 2026-03-25 17:29 America/Sao_Paulo
+
+**Prompt**
+
+Criar um prompt para orientar outra instancia do Codex IA a realizar automaticamente o deploy do FX TAO da empresa CINCI em uma nova VPS Ubuntu 24.04, usando o repositorio Git, Docker, Nginx e HTTPS, considerando que a VPS hospedara tambem `FX31` e `FXRDO`.
+
+**Retorno resumido**
+
+- Foi analisada a estrutura real de deploy atualmente usada no FX TAO para embasar o prompt:
+  - `deploy/docker-compose.vps.yml`
+  - `deploy/backend.Dockerfile`
+  - `deploy/frontend.prod.Dockerfile`
+  - `/etc/nginx/sites-available/allora.tao.fx4.com.br`
+- Foram mapeadas as variaveis de ambiente essenciais do app:
+  - `COMPOSE_PROJECT_NAME`
+  - `DATABASE_URL`
+  - `FRONTEND_URL`
+  - `JWT_SECRET`
+  - `MICROSOFT_CLIENT_ID`
+  - `MICROSOFT_CLIENT_SECRET`
+  - `MICROSOFT_REDIRECT_URI`
+  - `MICROSOFT_TENANT_ID`
+  - `PORT`
+  - `POSTGRES_DB`
+  - `POSTGRES_PASSWORD`
+  - `POSTGRES_USER`
+  - `VITE_API_URL`
+- Tambem foi confirmado que:
+  - o endpoint interno de health da API e `/health`;
+  - o proxy publico atual usa `location /`, `location /api/` e `location /uploads/`;
+  - o repositorio nao apresenta uma pasta versionada de `migrations` do Prisma, exigindo cautela no bootstrap do banco em uma VPS nova.
+- Foi criado um prompt operacional completo, orientado a automacao segura do deploy, contemplando:
+  - diagnostico inicial da VPS;
+  - instalacao idempotente de dependencias;
+  - clone do Git com credencial ja existente;
+  - criacao de `.env`;
+  - estrategia de portas para coexistir com `FX31` e `FXRDO`;
+  - bootstrap seguro do banco;
+  - subida via Docker Compose;
+  - configuracao de Nginx e Certbot;
+  - validacoes finais e entrega resumida.
+- O prompt foi salvo em:
+  - `/opt/FXTAO/backups/20260325-172918-cinci-deploy-prompt/PROMPT_DEPLOY_AUTOMATICO_FXTAO_CINCI.md`
+
+**Observacoes**
+
+- Nenhum arquivo de codigo da aplicacao foi alterado nesta etapa.
+- Backup do arquivo de memoria criado antes desta atualizacao em:
+  - `/opt/FXTAO/backups/20260325-172918-cinci-deploy-prompt/IA_mem.md.bak`
+
+### 2026-03-26 16:48 America/Sao_Paulo
+
+**Prompt**
+
+Verificar se o servico do FX TAO em producao esta ativo e identificar por que o usuario recebe `Request failed with status code 500` ao cadastrar ou avancar no cadastro de uma nova TAO, com cuidado total por se tratar de base de producao.
+
+**Retorno resumido**
+
+- O servico foi confirmado como ativo:
+  - container `fxtao_web`: `Up`
+  - container `fxtao`: `Up`
+  - container `fxtao_db`: `Up (healthy)`
+  - `http://127.0.0.1:3000/health` respondeu `HTTP 200` com `{"status":"ok"}`
+  - `https://allora.tao.fx4.com.br/` respondeu `HTTP 200`
+- O erro observado nao e indisponibilidade do servico; e uma falha de validacao no backend durante o salvamento da TAO.
+- Logs do backend identificaram repetidamente o mesmo erro:
+  - `Failed to update TAO: PrismaClientValidationError`
+  - `Invalid value for argument date_start: premature end of input. Expected ISO-8601 DateTime.`
+- A causa raiz esta no fluxo de datas da etapa de contrato:
+  - o frontend envia os campos `date_signature`, `date_mobilization`, `date_start` e `date_end` como string simples de input HTML, por exemplo `2024-09-25`
+  - isso ocorre em `/opt/FXTAO/src/components/tao/steps/TaoStep1.jsx`
+  - o backend repassa esses valores diretamente ao Prisma sem conversao em `/opt/FXTAO/backend/src/controllers/taoController.js`
+  - no schema Prisma, esses campos sao `DateTime? @db.Date`, em `/opt/FXTAO/backend/prisma/schema.prisma`
+- O frontend mostra a mensagem generica `Request failed with status code 500` porque o `onError` da mutacao usa apenas `err.message`, sem exibir o `details` retornado pela API.
+
+**Observacoes**
+
+- O problema parece ocorrer especialmente ao atualizar uma TAO existente ao avancar para a etapa com datas, nao por queda geral do sistema.
+- Nenhuma alteracao foi aplicada no codigo nem nos dados nesta rodada; a atuacao ficou restrita a verificacao, leitura de logs e analise do codigo.
+- Backup do arquivo de memoria criado antes desta atualizacao em:
+  - `/opt/FXTAO/backups/20260326-164833-tao-500-analysis/IA_mem.md.bak`
+
+### 2026-03-26 16:55 America/Sao_Paulo
+
+**Prompt**
+
+Resolver o erro de producao ao salvar ou avancar uma TAO quando ha datas preenchidas, com backup dos arquivos tocados e o minimo risco para a base.
+
+**Retorno resumido**
+
+- Foi criado backup previo dos arquivos alterados em:
+  - `/opt/FXTAO/backups/20260326-165126-tao-date-fix/taoController.js.bak`
+  - `/opt/FXTAO/backups/20260326-165126-tao-date-fix/TaoForm.jsx.bak`
+- Correcao aplicada no backend em `/opt/FXTAO/backend/src/controllers/taoController.js`:
+  - normalizacao dos campos `date_signature`, `date_mobilization`, `date_start` e `date_end`;
+  - conversao automatica de strings `YYYY-MM-DD` para `Date` valida antes do Prisma;
+  - tratamento de data invalida com resposta `400` em vez de falha generica interna.
+- Correcao aplicada no frontend em `/opt/FXTAO/src/pages/TaoForm.jsx`:
+  - normalizacao das datas recebidas da API para o formato aceito pelo `input type="date"`;
+  - uso da mensagem detalhada da API no toast de erro, quando existir.
+- Publicacao realizada apenas dos servicos afetados:
+  - `docker compose -f /opt/FXTAO/deploy/docker-compose.vps.yml up -d --build --no-deps api web`
+- Validacoes apos deploy:
+  - `fxtao`, `fxtao_web` e `fxtao_db` ativos;
+  - `http://127.0.0.1:3000/health` respondeu `200`;
+  - `https://allora.tao.fx4.com.br/` respondeu `200`;
+  - `docker exec fxtao node -e "require('/app/src/controllers/taoController'); console.log('taoController loaded')"` executou com sucesso;
+  - logs recentes da API sem erro de bootstrap.
+
+**Observacoes**
+
+- Nenhum dado de producao foi alterado manualmente para validar a correcao; a verificacao foi feita por build, subida dos containers, healthcheck e carga do controller em runtime.
+- Backup do arquivo de memoria criado antes desta atualizacao em:
+  - `/opt/FXTAO/backups/20260326-165126-tao-date-fix/IA_mem.md.bak`
+
+### 2026-03-27 15:20 America/Sao_Paulo
+
+**Prompt**
+
+Criar no menu Configuracoes um quadro chamado `Importação/exportação TAO`, com:
+- toggle para selecao de formato `xlsx` ou `csv`;
+- botao para baixar a mascara de importacao;
+- botao para exportar os dados atuais das TAOs;
+- botao para importar arquivo;
+contemplando os dados principais da TAO e os colaboradores vinculados a cada obra.
+
+**Retorno resumido**
+
+- Foi criado backup previo dos arquivos existentes alterados em:
+  - `/opt/FXTAO/backups/20260327-151059-tao-transfer/app.js.bak`
+  - `/opt/FXTAO/backups/20260327-151059-tao-transfer/Settings.jsx.bak`
+  - `/opt/FXTAO/backups/20260327-151059-tao-transfer/backend.package.json.bak`
+  - `/opt/FXTAO/backups/20260327-151059-tao-transfer/backend.package-lock.json.bak`
+- Foi adicionada a infraestrutura backend dedicada para transferencia de TAOs:
+  - rota `/api/v1/tao-transfer`
+  - controller `/opt/FXTAO/backend/src/controllers/taoTransferController.js`
+  - route file `/opt/FXTAO/backend/src/routes/taoTransferRoutes.js`
+- Endpoints implementados:
+  - `GET /api/v1/tao-transfer/template?format=xlsx|csv`
+  - `GET /api/v1/tao-transfer/export?format=xlsx|csv`
+  - `POST /api/v1/tao-transfer/import`
+- A importacao/exportacao contempla:
+  - campos principais da entidade `Tao`;
+  - colaboradores da obra via colunas `team_member_name`, `team_member_role`, `team_member_email` e `team_member_type`;
+  - uma linha por colaborador, repetindo os dados da TAO.
+- A importacao foi implementada de forma nao destrutiva:
+  - cria ou atualiza TAOs;
+  - cria ou atualiza colaboradores;
+  - nao exclui automaticamente registros existentes omitidos no arquivo.
+- A rota foi protegida por autenticacao e perfil elevado (`admin` ou `director`).
+- Foi criada a interface em Configuracoes:
+  - componente `/opt/FXTAO/src/components/settings/TaoTransferCard.jsx`
+  - integracao em `/opt/FXTAO/src/pages/Settings.jsx`
+- A dependencia `xlsx` foi adicionada apenas ao backend.
+- Publicacao realizada apenas dos servicos afetados:
+  - `docker compose -f /opt/FXTAO/deploy/docker-compose.vps.yml up -d --build --no-deps api web`
+
+**Validacao**
+
+- `http://127.0.0.1:3000/health` respondeu `200`
+- `https://allora.tao.fx4.com.br/` respondeu `200`
+- `GET /api/v1/tao-transfer/template?format=csv` respondeu `200` e gerou `fxtao-mascara-importacao.csv`
+- `GET /api/v1/tao-transfer/export?format=csv` respondeu `200` e gerou `fxtao-export-2026-03-27.csv`
+- `POST /api/v1/tao-transfer/import` sem arquivo respondeu `400` com `Nenhum arquivo foi enviado.`
+
+**Observacoes**
+
+- A validacao dos novos endpoints foi feita com token temporario de admin gerado localmente apenas para teste, sem exposicao do segredo e sem alterar dados da base.
+- Backup do arquivo de memoria criado antes desta atualizacao em:
+  - `/opt/FXTAO/backups/20260327-151059-tao-transfer/IA_mem.md.bak`
+
+---
+
+## 2026-03-27 15:49 BRT - Ajuste de labels da mascara de importacao TAO
+
+**Solicitacao**
+
+- Substituir os nomes tecnicos dos campos na mascara de importacao por labels amigaveis, equivalentes aos campos do formulario da aplicacao.
+- Quando possivel, usar apenas o label; manter compatibilidade com importacoes antigas.
+- Exibir uma ajuda grande em hover no proprio titulo do quadro `Importacao/exportacao TAO`, com linguagem para usuario leigo explicando como preencher o arquivo.
+
+**Arquivos alterados**
+
+- `/opt/FXTAO/backend/src/controllers/taoTransferController.js`
+- `/opt/FXTAO/src/components/settings/TaoTransferCard.jsx`
+
+**Backups**
+
+- `/opt/FXTAO/backups/20260327-154137-tao-transfer-labels/TaoTransferCard.jsx.bak`
+- `/opt/FXTAO/backups/20260327-154137-tao-transfer-labels/taoTransferController.js.bak`
+- `/opt/FXTAO/backups/20260327-1549-tao-transfer-tooltip-refine/TaoTransferCard.jsx.bak`
+- `/opt/FXTAO/backups/20260327-1549-tao-transfer-tooltip-refine/taoTransferController.js.bak`
+- `/opt/FXTAO/backups/20260327-1549-tao-transfer-tooltip-refine/IA_mem.md.bak`
+
+**Implementacao**
+
+- A geracao da mascara e da exportacao passou a usar labels amigaveis no cabecalho, como:
+  - `Obra`
+  - `ERP Nº`
+  - `Data Inicio Obra`
+  - `Colaborador - Nome`
+- O importador foi mantido retrocompativel:
+  - aceita os nomes tecnicos antigos;
+  - aceita os novos labels amigaveis;
+  - aceita tambem o formato `Label (field_name)`.
+- O hover de ajuda foi ampliado e passou a abrir ao passar o mouse sobre o proprio titulo do quadro, com orientacoes de preenchimento em linguagem simples.
+- Os ultimos textos tecnicos visiveis no card foram ajustados para nomes amigaveis dos campos de colaborador.
+- Mensagens de erro do backend foram refinadas para linguagem mais amigavel ao usuario.
+- Foi feito um refinamento estrutural final no componente do titulo do card para manter o HTML do frontend consistente, seguido de nova publicacao apenas do servico `web`.
+
+**Publicacao**
+
+- Publicacao realizada apenas dos servicos afetados:
+  - `docker compose -f /opt/FXTAO/deploy/docker-compose.vps.yml up -d --build --no-deps api web`
+
+**Validacao**
+
+- Containers apos publicacao:
+  - `fxtao_web` ativo
+  - `fxtao` ativo
+  - `fxtao_db` ativo e saudavel
+- `http://127.0.0.1:3000/health` respondeu `200`
+- `https://allora.tao.fx4.com.br/` respondeu `200`
+- `GET /api/v1/tao-transfer/template?format=csv` retornou cabecalho amigavel iniciando por:
+  - `ID TAO,Obra,Segmento,Tipo de Projeto,Etapa da TAO,...`
+- `GET /api/v1/tao-transfer/export?format=csv` tambem retornou cabecalho amigavel equivalente.
+
+**Observacoes**
+
+- Nenhum dado da base foi alterado durante a validacao.
+- A validacao autenticada foi feita com token temporario gerado apenas localmente para teste.
+
+---
+
+## 2026-04-10 13:00 BRT - Planejamento de readequacao da TAO para fork Allora
+
+**Solicitacao**
+
+- Identificar os formularios atuais de preenchimento da TAO e suas fases.
+- Localizar os materiais de aderencia da Allora.
+- Gerar backup preventivo da base de dados antes de qualquer futura mudanca estrutural.
+- Estruturar um plano de acao para readequar a TAO com base apenas no documento `TAO.docx` e na planilha `CHECK_LIST_INICIAL_DE_OBRA (1).xlsx`.
+- Considerar campos marcados como `restrito` em uma aba separada, com controle de acesso por flag no usuario.
+- Nao remover campos da base existente e reaproveitar campos correlatos sempre que possivel.
+
+**Arquivos e artefatos analisados**
+
+- `/opt/FXTAO/src/pages/TaoForm.jsx`
+- `/opt/FXTAO/src/components/tao/TaoStepper.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStepStart.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStep1.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStep2.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStep3.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStep4.jsx`
+- `/opt/FXTAO/src/components/tao/steps/TaoStep5.jsx`
+- `/opt/FXTAO/backend/prisma/schema.prisma`
+- `/opt/FXTAO/aderenciaAllora/TAO.docx`
+- `/opt/FXTAO/aderenciaAllora/CHECK_LIST_INICIAL_DE_OBRA (1).xlsx`
+
+**Mapeamento atual da TAO**
+
+- Estrutura atual do formulario:
+  - `start`: dados iniciais
+  - `1`: contrato
+  - `2`: financeiro
+  - `3`: aditivos
+  - `4`: compliance
+  - `5`: cadastrado / fechamento
+- Componentes atuais:
+  - `TaoStepStart`: obra, ERP, area, faturamento, endereco da obra, gerenciadora, dados bancarios
+  - `TaoStep1`: regime de contratacao, descricao, datas, impostos, OME, valores do contrato
+  - `TaoStep2`: parcelas, condicoes de pagamento, equipe da empresa
+  - `TaoStep3`: aditivos
+  - `TaoStep4`: escopo, projetos, seguros, licencas, obrigacoes, multas e medicoes
+  - `TaoStep5`: SharePoint, observacoes, contatos e anexos
+
+**Leitura dos materiais Allora**
+
+- `TAO.docx` trouxe os blocos:
+  - dados do Sienge / codigos de obra e centro de custo
+  - dados do projeto e do cliente
+  - dados da obra
+  - faturamento
+  - financeiro geral
+  - financeiro restrito
+  - outros itens contratuais e operacionais
+- `CHECK_LIST_INICIAL_DE_OBRA (1).xlsx` trouxe um modelo operacional com:
+  - identificacao da obra, cliente e responsaveis
+  - local, datas, proposta e arquitetura
+  - restricoes de entrega
+  - modelo de faturamento
+  - documentacoes de faturamento
+  - modelo de contratacao e relatorios
+  - bloco administrativo
+  - checklist operacional de abertura de obra
+
+**Backup preventivo**
+
+- Backup da base gerado com sucesso em:
+  - `/opt/FXTAO/backups/20260410-125728-db-backup-before-allora-tao-redesign/fxtao_db.dump`
+
+**Observacoes**
+
+- Nenhum arquivo de codigo foi alterado nesta etapa.
+- Nenhum dado da base foi modificado; foi gerado apenas backup preventivo.
+
+---
+
+## 2026-04-10 13:12 BRT - Matriz de aderencia da TAO Allora
+
+**Solicitacao**
+
+- Prosseguir na linha de readequacao da TAO para o fork Allora.
+- Consolidar uma matriz de aderencia entre:
+  - estrutura atual da TAO;
+  - `TAO.docx`;
+  - `CHECK_LIST_INICIAL_DE_OBRA (1).xlsx`.
+
+**Arquivo criado**
+
+- `/opt/FXTAO/aderenciaAllora/MATRIZ_ADERENCIA_TAO_ALLORA.md`
+
+**Conteudo consolidado**
+
+- restricoes tecnicas atuais do fluxo da TAO;
+- proposta de novas fases do formulario Allora;
+- estrategia para retirar `Aditivos` do fluxo principal sem perder funcionalidade;
+- proposta de aba restrita com controle por flag no usuario;
+- matriz de mapeamento de campos:
+  - reaproveitamento direto;
+  - reaproveitamento com novo label;
+  - uso de relacoes existentes (`TaoContact`, `TaoTeamMember`, `TaoAttachment`, `TaoInstallment`);
+  - novos campos provaveis;
+  - proposta de nova relacao para checklist inicial;
+- lista de decisoes de negocio que ainda precisam ser fechadas antes da implementacao.
+
+**Backups**
+
+- `/opt/FXTAO/backups/20260410-1312-allora-matriz/IA_mem.md.bak`
+
+**Observacoes**
+
+- Nenhum codigo funcional da aplicacao foi alterado nesta etapa.
+- O trabalho ficou apenas em planejamento estruturado e documentacao tecnica para orientar a implementacao do fork Allora.
+
+---
+
+## 2026-04-10 14:26 BRT - Revisao da estrutura do formulario Allora
+
+**Solicitacao**
+
+- Rever a proposta anterior de fases da TAO Allora.
+- Preservar os labels da documentacao Allora.
+- Considerar um formulario estruturalmente mais proximo da planilha `CHECK_LIST_INICIAL_DE_OBRA`.
+- Registrar as decisoes de negocio ja fechadas.
+
+**Arquivo atualizado**
+
+- `/opt/FXTAO/aderenciaAllora/MATRIZ_ADERENCIA_TAO_ALLORA.md`
+
+**Ajustes consolidados**
+
+- A proposta deixou de tratar o fork Allora como wizard de 6 fases visiveis.
+- O novo direcionamento passou a ser:
+  - formulario unico;
+  - blocos visuais verticais;
+  - leitura semelhante a planilha;
+  - labels na linguagem Allora;
+  - bloco restrito separado por permissao.
+- Estrutura proposta em blocos:
+  - Dados iniciais da obra
+  - Modelo de faturamento
+  - Modelo de contratacao
+  - Para Preco Fechado
+  - Para Administracao
+  - Financeiro restrito
+  - Operacional registro de obra
+  - Outros e documentos
+- As decisoes de negocio fechadas foram refletidas na matriz:
+  - `Codigo da obra` usando o core de `ERP Nº`
+  - `Cliente` sem novo campo escalar independente
+  - `Valor estimado total da obra` ligado a `value_total_contract`
+  - `Equipe total prevista com imposto` ligada a `value_team_technical` com tooltip
+  - `Documentacoes de faturamento direto` como checklist relacional
+  - `Compliance` removido do fork Allora
+
+**Backups**
+
+- `/opt/FXTAO/backups/20260410-1415-allora-structure-rethink/MATRIZ_ADERENCIA_TAO_ALLORA.md.bak`
+- `/opt/FXTAO/backups/20260410-1426-allora-ux-structure/IA_mem.md.bak`
+
+**Observacoes**
+
+- Nenhum codigo funcional foi alterado nesta etapa.
+- O trabalho permaneceu em nivel de planejamento e definicao de estrutura para a futura implementacao do fork Allora.
+
+---
+
+## 2026-04-10 14:40 BRT - Tabela executiva final da TAO Allora
+
+**Solicitacao**
+
+- Prosseguir apos aprovacao da nova estrutura Allora.
+- Gerar a tabela executiva final de implementacao, campo por campo, com:
+  - label Allora
+  - destino tecnico
+  - reaproveitamento
+  - obrigatoriedade
+  - restricao
+  - observacoes de implementacao
+
+**Arquivo criado**
+
+- `/opt/FXTAO/aderenciaAllora/TABELA_EXECUTIVA_IMPLEMENTACAO_TAO_ALLORA.md`
+
+**Conteudo consolidado**
+
+- regras aprovadas de negocio para o fork Allora;
+- estrutura visual final em formulario unico por blocos;
+- definicao de campos espelho para manter o layout sem duplicar persistencia;
+- tabela executiva detalhada por bloco:
+  - Dados iniciais da obra
+  - Modelo de faturamento
+  - Modelo de contratacao
+  - Para Preco Fechado
+  - Para Administracao
+  - Financeiro restrito
+  - Operacional registro de obra
+  - Outros e documentos
+- proposta de novos campos em `users`;
+- proposta de novas relacoes:
+  - checklist de faturamento direto
+  - checklist operacional inicial
+- ordem recomendada de implementacao.
+
+**Backups**
+
+- `/opt/FXTAO/backups/20260410-1415-allora-structure-rethink/MATRIZ_ADERENCIA_TAO_ALLORA.md.bak`
+- `/opt/FXTAO/backups/20260410-1426-allora-ux-structure/IA_mem.md.bak`
+
+**Observacoes**
+
+- Nenhum codigo funcional da aplicacao foi alterado nesta etapa.
+- O material produzido passa a ser a referencia executiva para iniciar a fase de implementacao do fork Allora.
+
+
+## 2026-04-10 16:18 BRT - Rollout Allora TAO finalizado
+
+Prompt do usuário:
+Implementar integralmente o fork Allora da TAO até a solução finalizada e funcional, com cuidado de produção.
+
+Resumo do que foi feito:
+- Mantida a base existente e aplicada evolução aditiva no schema Prisma para suportar a estrutura Allora.
+- Criada flag de usuário `can_view_restricted_tao_fields` para controle da aba de dados restritos.
+- Reestruturada a tela principal da TAO em formulário único por blocos, alinhado ao checklist inicial de obra da Allora.
+- Mantida persistência segura no backend com sanitização de campos e contatos restritos.
+- Ajustada a gestão de usuários para administrar a nova flag de dados restritos.
+- Refeita a importação/exportação TAO para o modelo Allora, em uma linha por TAO, com contatos, colaboradores fixos, documentação de faturamento e checklist inicial planificados.
+- Atualizado o relatório executivo para refletir a estrutura Allora e removidos histórico de aprovação e logs do processo da apresentação.
+- Criados/ajustados artefatos de apoio em `aderenciaAllora/` e constantes de configuração Allora.
+
+Backups gerados nesta etapa:
+- `/opt/FXTAO/backups/20260410-1605-allora-finalize/`
+- `/opt/FXTAO/backups/20260410-1608-before-allora-rollout/fxtao_db_pre_allora_rollout.dump`
+- imagens Docker de backup: `fxtao-api:backup-20260410-1610-allora` e `fxtao-web:backup-20260410-1610-allora`
+
+Validações executadas:
+- `docker build` do backend com sucesso.
+- `docker build` do frontend com sucesso.
+- `Prisma validate` com schema válido.
+- `Prisma db push --skip-generate` aplicado com sucesso na base de produção.
+- `docker compose up -d --build --no-deps api web` executado com sucesso.
+- Healthcheck API `200` em `http://127.0.0.1:3000/health`.
+- Domínio `https://allora.tao.fx4.com.br/` respondendo `200`.
+- Template CSV autenticado da importação/exportação retornando a nova estrutura Allora.
+- API `/api/v1/users` retornando o novo campo `can_view_restricted_tao_fields`.
+
+Observações:
+- Nenhum dado existente da TAO foi removido.
+- A evolução foi aditiva e preservou a base atual.
+- A nova estrutura de relatório e importação/exportação já está publicada.

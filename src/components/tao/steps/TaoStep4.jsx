@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import api from '@/services/api';
 import { useQuery } from '@tanstack/react-query';
 import { Label } from "@/components/ui/label";
@@ -7,8 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { Calendar, Paperclip, File, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { Paperclip, File, Image as ImageIcon, ExternalLink } from 'lucide-react';
 
 // Extracted outside to avoid re-creation on every render (which causes focus loss)
 function ComplianceRow({ label, statusField, textField, dateField, dateLabel, taoData, onChange }) {
@@ -51,7 +49,7 @@ function ComplianceRow({ label, statusField, textField, dateField, dateLabel, ta
   );
 }
 
-export default function TaoStep4({ taoData, updateTao }) {
+export default function TaoStep4({ taoData, updateTao, canEdit }) {
   const taoId = taoData.id;
 
   // Fetch attachments for modal
@@ -125,7 +123,7 @@ export default function TaoStep4({ taoData, updateTao }) {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <fieldset disabled={!canEdit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 disabled:opacity-75">
         {/* Main Compliance Form */}
         <div className="lg:col-span-12 space-y-6">
           <Card className="border-slate-200 shadow-sm">
@@ -270,7 +268,7 @@ export default function TaoStep4({ taoData, updateTao }) {
 
 
 
-      </div>
+      </fieldset>
     </div>
   );
 }

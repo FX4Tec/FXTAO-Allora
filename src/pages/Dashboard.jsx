@@ -63,10 +63,29 @@ export default function Dashboard() {
     const { data: taos = [], isLoading: isLoadingTaos } = useQuery({
         queryKey: ['taos'],
         queryFn: async () => {
-            const res = await api.get('/taos');
-            const data = res.data;
-            if (data && Array.isArray(data.data)) return data.data;
-            return Array.isArray(data) ? data : [];
+            const limit = 100;
+            let page = 1;
+            let pages = 1;
+            const allTaos = [];
+
+            do {
+                const res = await api.get(`/taos?page=${page}&limit=${limit}&sort_by=project_name&sort_order=asc`);
+                const payload = res.data;
+
+                if (payload && Array.isArray(payload.data)) {
+                    allTaos.push(...payload.data);
+                    pages = Number(payload.meta?.pages || 1);
+                } else if (Array.isArray(payload)) {
+                    allTaos.push(...payload);
+                    break;
+                } else {
+                    break;
+                }
+
+                page += 1;
+            } while (page <= pages);
+
+            return allTaos;
         },
         placeholderData: [],
     });

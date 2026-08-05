@@ -41,7 +41,8 @@ export default function Users() {
         email: '',
         password: '',
         role: 'user',
-        is_active: true
+        is_active: true,
+        can_view_restricted_tao_fields: false,
     });
 
     const { data: users, isLoading } = useQuery({
@@ -101,7 +102,8 @@ export default function Users() {
             email: user.email,
             password: '', // Don't fill password
             role: user.role,
-            is_active: user.is_active !== undefined ? user.is_active : true
+            is_active: user.is_active !== undefined ? user.is_active : true,
+            can_view_restricted_tao_fields: Boolean(user.can_view_restricted_tao_fields),
         });
         setIsDialogOpen(true);
     };
@@ -115,7 +117,14 @@ export default function Users() {
     const resetForm = () => {
         setEditingUser(null);
         setEditingUser(null);
-        setFormData({ full_name: '', email: '', password: '', role: 'user', is_active: true });
+        setFormData({
+            full_name: '',
+            email: '',
+            password: '',
+            role: 'user',
+            is_active: true,
+            can_view_restricted_tao_fields: false,
+        });
     };
 
     return (
@@ -182,6 +191,19 @@ export default function Users() {
                                 />
                                 <Label htmlFor="is_active">Usuário Ativo</Label>
                             </div>
+                            <div className="flex items-start space-x-3 rounded-lg border border-slate-200 p-3">
+                                <Switch
+                                    id="can_view_restricted_tao_fields"
+                                    checked={formData.can_view_restricted_tao_fields}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, can_view_restricted_tao_fields: checked })}
+                                />
+                                <div className="space-y-1">
+                                    <Label htmlFor="can_view_restricted_tao_fields">Pode consultar dados restritos da TAO</Label>
+                                    <p className="text-xs text-slate-500">
+                                        Libera a aba de financeiro restrito e os dados sensíveis vinculados ao fork Allora.
+                                    </p>
+                                </div>
+                            </div>
                             <div className="space-y-2">
                                 <Label>Perfil</Label>
                                 <Select
@@ -214,6 +236,7 @@ export default function Users() {
                             <TableHead>Nome</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Perfil</TableHead>
+                            <TableHead>Dados Restritos</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Data Cadastro</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
@@ -221,7 +244,7 @@ export default function Users() {
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center h-24">Carregando...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={7} className="text-center h-24">Carregando...</TableCell></TableRow>
                         ) : users?.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium flex items-center gap-2">
@@ -245,6 +268,12 @@ export default function Users() {
                                             user.role === 'director' ? 'bg-orange-100 text-orange-700' :
                                                 'bg-slate-100 text-slate-700'}`}>
                                         {user.role}
+                                    </span>
+                                </TableCell>
+                                <TableCell>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold
+                                        ${user.can_view_restricted_tao_fields ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                        {user.can_view_restricted_tao_fields ? 'LIBERADO' : 'BLOQUEADO'}
                                     </span>
                                 </TableCell>
                                 <TableCell>

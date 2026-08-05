@@ -50,6 +50,38 @@ enum ApprovalScope {
   both
 }
 
+enum TaoRegistrationType {
+  SOMENTE_OBRA
+  OBRA_E_CENTRO_CUSTO
+  SOMENTE_CENTRO_CUSTO
+  CENTRO_CUSTO_ASSOCIADO_OBRA
+}
+
+enum TaoLifecycleStatus {
+  RASCUNHO
+  EM_VALIDACAO
+  APROVADA
+  REPROVADA
+  CADASTRADA_NO_SIENGE
+  CANCELADA
+}
+
+enum ClientType {
+  PESSOA_FISICA
+  PESSOA_JURIDICA
+  OUTROS
+}
+
+enum CostCenterPurpose {
+  CONSTRUTORA
+  CLIENTE
+  INVESTIDOR
+  SPE
+  ADMINISTRACAO_OBRA
+  ASSISTENCIA_TECNICA
+  OUTROS
+}
+
 enum NotificationType {
   info
   success
@@ -71,6 +103,7 @@ model User {
   password_hash String?
   full_name     String?
   role          Role      @default(user)
+  can_view_restricted_tao_fields Boolean @default(false)
   auth_provider String    @default("local") // 'local' or 'microsoft'
   sso_id        String?   // ID from Microsoft Graph
   avatar_url    String?
@@ -80,6 +113,11 @@ model User {
 
   // Relations
   taos_created      Tao[]              @relation("TaoCreator")
+  taos_updated      Tao[]              @relation("TaoUpdater")
+  engineering_approval_taos Tao[]      @relation("TaoEngineeringApprover")
+  financial_approval_taos  Tao[]       @relation("TaoFinancialApprover")
+  fiscal_approval_taos     Tao[]       @relation("TaoFiscalApprover")
+  board_approval_taos      Tao[]       @relation("TaoBoardApprover")
   approval_history  TaoApprovalHistory[]
   logs_performed    TaoLog[]           @relation("UserLogs") // Logs where user PERFORMED the action
   notifications     Notification[]
@@ -88,10 +126,70 @@ model User {
   @@map("users")
 }
 
+model Company {
+  id                  String          @id @default(uuid())
+  legal_name          String
+  trade_name          String?
+  document            String?
+  document_normalized String?         @unique
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+
+  taos_responsible    Tao[]           @relation("TaoResponsibleCompany")
+  taos_financial      Tao[]           @relation("TaoFinancialCompany")
+  cost_centers        TaoCostCenter[]
+
+  @@map("companies")
+}
+
+model Client {
+  id                  String     @id @default(uuid())
+  name                String
+  client_type         ClientType?
+  document            String?
+  document_normalized String?    @unique
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+
+  taos                Tao[]
+
+  @@map("clients")
+}
+
+model BusinessArea {
+  id         String          @id @default(uuid())
+  code       String?         @unique
+  name       String          @unique
+  is_active  Boolean         @default(true)
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+
+  financial_taos Tao[]
+  cost_centers   TaoCostCenter[]
+
+  @@map("business_areas")
+}
+
+model CostCenterCategory {
+  id         String          @id @default(uuid())
+  code       String?         @unique
+  name       String          @unique
+  is_active  Boolean         @default(true)
+  created_at DateTime        @default(now())
+  updated_at DateTime        @updatedAt
+
+  financial_taos Tao[]
+  cost_centers   TaoCostCenter[]
+
+  @@map("cost_center_categories")
+}
+
 model Tao {
   id                           String          @id @default(uuid())
   created_by_id                String
   created_by                   User            @relation("TaoCreator", fields: [created_by_id], references: [id])
+  updated_by_id                String?
+  updated_by                   User?           @relation("TaoUpdater", fields: [updated_by_id], references: [id])
   project_name                 String
   segment                      String?         // 'Residencial', 'Comercial', etc.
   project_type                 String?         // 'Construção Nova', 'Reforma', etc.
@@ -99,21 +197,46 @@ model Tao {
   approval_status              ApprovalStatus  @default(draft)
   current_approval_level       Int             @default(0)
   calculation_mode             CalculationMode @default(manual)
+  registration_type            TaoRegistrationType?
+  tao_lifecycle_status         TaoLifecycleStatus?
   erp_number                   String?
+  opening_date                 DateTime?       @db.Date
   area_m2                      Decimal?        @db.Decimal(10, 2)
   latitude                     Decimal?        @db.Decimal(9, 6)
   longitude                    Decimal?        @db.Decimal(9, 6)
+  construction_situation       String?
+  is_registration_consistent   Boolean?
+  center_cost_client           String?
+  extra_center_costs_client    String?         @db.Text
+  center_cost_allora           String?
+  project_code                 String?
+  proposal_number              String?
+  client_code                  String?
+  technical_responsible_name   String?
+  has_manager                  Boolean         @default(false)
+  has_architecture             Boolean         @default(false)
   contract_company_consultancy Boolean         @default(false)
   hiring_regime                String?
+  hiring_regime_detail         String?
+  budget_model                 String?
   contract_description         String?         @db.Text
   sharepoint_url               String?
   observations_general         String?         @db.Text
+  delivery_address             String?         @db.Text
+  client_link_notes            String?         @db.Text
+  parent_tao_id                String?
+  parent_tao                   Tao?            @relation("TaoParent", fields: [parent_tao_id], references: [id])
+  child_taos                   Tao[]           @relation("TaoParent")
   
   // Dates
   date_signature    DateTime? @db.Date
   date_mobilization DateTime? @db.Date
   date_start        DateTime? @db.Date
   date_end          DateTime? @db.Date
+  actual_start_date DateTime? @db.Date
+  actual_end_date   DateTime? @db.Date
+  duration_months   Int?
+  duration_days     Int?
 
   // Billing Address
   billing_company_name    String?
@@ -126,7 +249,13 @@ model Tao {
   billing_ie              String?
   billing_im              String?
   billing_drm             String?
+  billing_iptu_number     String?
   billing_not_established Boolean  @default(false)
+  billing_model           String?
+  has_delivery_restriction Boolean @default(false)
+  delivery_restriction_notes String? @db.Text
+  requires_physical_delivery Boolean @default(false)
+  physical_delivery_address String? @db.Text
   
   // Construction Address
   construction_address       String?
@@ -134,15 +263,28 @@ model Tao {
   construction_neighborhood  String?
   construction_city          String?
   construction_state         String?
+  requires_cno               Boolean         @default(false)
+  obra_cno                   String?
+  obra_sfobras               String?
   
   // Manager Info
   manager_company_name    String?
   manager_address         String?
   manager_phone           String?
+  company_code            String?
+  project_group           String?
+  responsible_company_id  String?
+  responsible_company     Company?         @relation("TaoResponsibleCompany", fields: [responsible_company_id], references: [id])
+  client_id               String?
+  client                  Client?          @relation(fields: [client_id], references: [id])
 
   // Bank Accounts
   bank_account_consultancy_id   String?
   bank_account_construction_id  String?
+  default_financial_bank_account_id String?
+  default_financial_bank_account BankAccount? @relation("TaoDefaultFinancialBankAccount", fields: [default_financial_bank_account_id], references: [id])
+  billing_issue_bank_account_id String?
+  billing_issue_bank_account    BankAccount? @relation("TaoBillingIssueBankAccount", fields: [billing_issue_bank_account_id], references: [id])
   
   // Financial Values
   value_total_contract       Decimal? @db.Decimal(15, 2)
@@ -155,6 +297,47 @@ model Tao {
   value_b_revenue            Decimal? @db.Decimal(15, 2)
   value_rateable_1           Decimal? @db.Decimal(15, 2)
   value_rateable_2           Decimal? @db.Decimal(15, 2)
+  financial_schedule_notes   String?  @db.Text
+  report_frequency           String?
+  has_invoice_cutoff         Boolean  @default(false)
+  invoice_cutoff_day         String?
+  notes_to_finance_deadline  String?
+  report_send_day            String?
+  payment_after_report_terms String?  @db.Text
+  payment_terms_text         String?  @db.Text
+  admin_financial_schedule_text String? @db.Text
+  admin_notes                String?  @db.Text
+  financial_notebook_send_rule String? @db.Text
+  payment_methods             String[] @default([])
+  requires_purchase_order     Boolean  @default(false)
+  purchase_order_process      String?  @db.Text
+  supplier_portal_url         String?
+  minimum_invoice_amount      Decimal? @db.Decimal(15, 2)
+  bonus_percent               Decimal? @db.Decimal(5, 2)
+  tax_conversion_percent      Decimal? @db.Decimal(5, 2)
+  direct_billing_control_notes String? @db.Text
+  signal_payment_notes        String?  @db.Text
+  invoice_cutoff_notes        String?  @db.Text
+  service_invoice_cutoff_day  Int?
+  material_invoice_cutoff_day Int?
+  architect_transfer_required Boolean?
+
+  // Restricted Financial Values
+  restricted_admin_percent             Decimal? @db.Decimal(5, 2)
+  restricted_tax_mode                  String?
+  restricted_admin_monthly_value       Decimal? @db.Decimal(15, 2)
+  restricted_team_monthly_value        Decimal? @db.Decimal(15, 2)
+  has_budget_sheet                     Boolean? 
+  restricted_admin_total_estimated     Decimal? @db.Decimal(15, 2)
+  restricted_engineer_monthly_value    Decimal? @db.Decimal(15, 2)
+  restricted_master_monthly_value      Decimal? @db.Decimal(15, 2)
+  restricted_special_items_admin_text  String?  @db.Text
+  restricted_notes                     String?  @db.Text
+  reports_delivery_notes               String?  @db.Text
+  accepts_reimbursements               Boolean?
+  accepts_reimbursements_notes         String?  @db.Text
+  accepts_exception_payments           Boolean?
+  accepts_exception_payments_notes     String?  @db.Text
 
   // Taxes - Original (PIS, COFINS, CSLL, IR)
   tax_pis_percent     Decimal? @db.Decimal(5, 2)
@@ -190,6 +373,57 @@ model Tao {
   tax_contractual_retention_percent     Decimal? @db.Decimal(5, 2)
   tax_contractual_retention_value       Decimal? @db.Decimal(15, 2)
 
+  // Sienge Engineering
+  engineering_supply_services_table String?
+  appropriation_level              String?
+  area_measure_unit                String?
+  planned_construction_units       Int?
+  has_engineering_budget           Boolean?
+  has_engineering_planning         Boolean?
+  has_physical_progress_tracking   Boolean?
+  engineering_responsible_name     String?
+
+  // Sienge Financial
+  financial_company_id             String?
+  financial_company                Company?            @relation("TaoFinancialCompany", fields: [financial_company_id], references: [id])
+  financial_business_area_id       String?
+  financial_business_area          BusinessArea?       @relation(fields: [financial_business_area_id], references: [id])
+  financial_cost_center_category_id String?
+  financial_cost_center_category   CostCenterCategory? @relation(fields: [financial_cost_center_category_id], references: [id])
+  compose_financial_availability   Boolean?
+  export_to_client_portal          Boolean?
+  financial_responsible_name       String?
+
+  // Sienge Fiscal
+  is_ret_regime                    Boolean?
+  enterprise_nature                String?
+  real_estate_unit_type            String?
+  generates_sped_efd_contributions Boolean?
+  fiscal_responsible_name          String?
+  fiscal_notes                     String?             @db.Text
+
+  // Sienge Commercial
+  keys_delivery_date               DateTime?           @db.Date
+  gross_sales_value                Decimal?            @db.Decimal(15, 2)
+  units_grouping                   String?
+  uses_client_portal               Boolean?
+  client_portal_links              String?             @db.Text
+  commercial_responsible_name      String?
+
+  // Sienge approval control
+  requested_at                     DateTime?
+  engineering_approver_user_id     String?
+  engineering_approver             User?               @relation("TaoEngineeringApprover", fields: [engineering_approver_user_id], references: [id])
+  financial_approver_user_id       String?
+  financial_approver               User?               @relation("TaoFinancialApprover", fields: [financial_approver_user_id], references: [id])
+  fiscal_approver_user_id          String?
+  fiscal_approver                  User?               @relation("TaoFiscalApprover", fields: [fiscal_approver_user_id], references: [id])
+  board_approver_user_id           String?
+  board_approver                   User?               @relation("TaoBoardApprover", fields: [board_approver_user_id], references: [id])
+  approved_at                      DateTime?
+  rejection_reason                 String?             @db.Text
+  sienge_registered_at             DateTime?
+
   // OME (Ordem de Mudança de Engenharia)
   ome_procedure       String?  @db.Text
   ome_billing_company Boolean  @default(false)
@@ -202,9 +436,34 @@ model Tao {
   // Scope / Docs
   scope_project_legal_status Boolean @default(false)
   scope_project_legal_text   String? @db.Text
+  scope_project_executive_status Boolean @default(false)
+  scope_project_executive_text   String? @db.Text
+  scope_permit_execution_status  Boolean @default(false)
+  scope_permit_execution_text    String? @db.Text
+  scope_cno_status               Boolean @default(false)
+  scope_cno_text                 String? @db.Text
+  insurance_guarantee_status     Boolean @default(false)
+  insurance_guarantee_text       String? @db.Text
+  insurance_guarantee_date       DateTime? @db.Date
+  insurance_construction_status  Boolean @default(false)
+  insurance_construction_text    String? @db.Text
+  insurance_construction_date    DateTime? @db.Date
   avcb_status                Boolean @default(false)
   avcb_text                  String? @db.Text
+  avcb_date                  DateTime? @db.Date
+  cnd_iss_status             Boolean @default(false)
+  cnd_iss_text               String? @db.Text
+  cnd_iss_date               DateTime? @db.Date
+  cnd_inss_status            Boolean @default(false)
+  cnd_inss_text              String? @db.Text
+  cnd_inss_date              DateTime? @db.Date
   habite_se_status           Boolean @default(false)
+  habite_se_text             String? @db.Text
+  habite_se_date             DateTime? @db.Date
+  client_contract_status     String?
+  work_insurance_status      String?
+  work_insurance_validity    String?
+  art_status                 String?
   
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -217,8 +476,53 @@ model Tao {
   attachments   TaoAttachment[]
   approvers     TaoApprover[]
   logs          TaoLog[]
+  direct_billing_document_items TaoDirectBillingDocumentItem[]
+  initial_checklist_items       TaoInitialChecklistItem[]
+  cost_centers                  TaoCostCenter[]
+  authorized_bank_accounts      TaoAuthorizedBankAccount[]
+  financial_composition_items   TaoFinancialCompositionItem[]
+  indirect_expense_items        TaoIndirectExpenseItem[]
 
   @@map("taos")
+}
+
+model TaoCostCenter {
+  id                           String              @id @default(uuid())
+  tao_id                       String
+  tao                          Tao                 @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  cost_center_code             String
+  name                         String
+  linked_document              String?
+  company_id                   String?
+  company                      Company?            @relation(fields: [company_id], references: [id])
+  business_area_id             String?
+  business_area                BusinessArea?       @relation(fields: [business_area_id], references: [id])
+  cost_center_category_id      String?
+  cost_center_category         CostCenterCategory? @relation(fields: [cost_center_category_id], references: [id])
+  purpose                      CostCenterPurpose?
+  is_primary                   Boolean             @default(false)
+  participates_financial       Boolean             @default(false)
+  participates_budget          Boolean             @default(false)
+  participates_supplies        Boolean             @default(false)
+  participates_measurements    Boolean             @default(false)
+  observations                 String?             @db.Text
+  created_at                   DateTime            @default(now())
+  updated_at                   DateTime            @updatedAt
+
+  @@unique([tao_id, cost_center_code, purpose])
+  @@map("tao_cost_centers")
+}
+
+model TaoAuthorizedBankAccount {
+  id              String      @id @default(uuid())
+  tao_id          String
+  tao             Tao         @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  bank_account_id String
+  bank_account    BankAccount @relation(fields: [bank_account_id], references: [id])
+  created_at      DateTime    @default(now())
+
+  @@unique([tao_id, bank_account_id])
+  @@map("tao_authorized_bank_accounts")
 }
 
 model TaoInstallment {
@@ -226,8 +530,12 @@ model TaoInstallment {
   tao_id      String
   tao         Tao             @relation(fields: [tao_id], references: [id], onDelete: Cascade)
   description String
+  issue_date  DateTime?       @db.Date
   due_date    DateTime        @db.Date
   value       Decimal         @db.Decimal(15, 2)
+  percentage  Decimal?        @db.Decimal(5, 2)
+  notes       String?         @db.Text
+  sort_order  Int             @default(0)
   is_paid     Boolean         @default(false)
   paid_date   DateTime?       @db.Date
   type        InstallmentType
@@ -254,8 +562,10 @@ model TaoTeamMember {
   tao       Tao     @relation(fields: [tao_id], references: [id], onDelete: Cascade)
   name      String
   role      String
-  email     String
+  email     String?
+  phone     String?
   team_type String? // internal, external, etc.
+  sort_order Int    @default(0)
 
   @@map("tao_team_members")
 }
@@ -281,6 +591,75 @@ model TaoAttachment {
   file_type String?
 
   @@map("tao_attachments")
+}
+
+model TaoFinancialCompositionItem {
+  id               String   @id @default(uuid())
+  tao_id           String
+  tao              Tao      @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  item_key         String
+  label            String
+  category         String?
+  amount           Decimal? @db.Decimal(15, 2)
+  percentage       Decimal? @db.Decimal(5, 2)
+  include_in_total Boolean  @default(true)
+  sort_order       Int      @default(0)
+  notes            String?  @db.Text
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@unique([tao_id, item_key])
+  @@map("tao_financial_composition_items")
+}
+
+model TaoIndirectExpenseItem {
+  id            String   @id @default(uuid())
+  tao_id        String
+  tao           Tao      @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  item_key      String
+  label         String
+  monthly_value Decimal? @db.Decimal(15, 2)
+  total_period  Decimal? @db.Decimal(15, 2)
+  person_name   String?
+  sort_order    Int      @default(0)
+  notes         String?  @db.Text
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@unique([tao_id, item_key])
+  @@map("tao_indirect_expense_items")
+}
+
+model TaoDirectBillingDocumentItem {
+  id             String  @id @default(uuid())
+  tao_id         String
+  tao            Tao     @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  document_key   String
+  document_label String
+  audience       String?
+  is_checked     Boolean @default(false)
+  notes          String? @db.Text
+  sort_order     Int     @default(0)
+
+  @@unique([tao_id, document_key])
+  @@map("tao_direct_billing_document_items")
+}
+
+model TaoInitialChecklistItem {
+  id              String  @id @default(uuid())
+  tao_id          String
+  tao             Tao     @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  category        String?
+  item_key        String
+  item_label      String
+  is_checked      Boolean @default(false)
+  selected_option String?
+  value_text      String? @db.Text
+  notes           String? @db.Text
+  sort_order      Int     @default(0)
+
+  @@unique([tao_id, item_key])
+  @@map("tao_initial_checklist_items")
 }
 
 model TaoApprover {
@@ -330,6 +709,9 @@ model BankAccount {
   account_number String?
   pix            String?
   company_type   String? // 'consultancy' or 'construction'
+  default_financial_taos Tao[] @relation("TaoDefaultFinancialBankAccount")
+  billing_issue_taos     Tao[] @relation("TaoBillingIssueBankAccount")
+  authorized_taos        TaoAuthorizedBankAccount[]
 
   @@map("bank_accounts")
 }

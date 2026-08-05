@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "tao-obra-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/taoObraWebPart/TaoObraWebPart.js",
+          "manifest": "./src/webparts/taoObraWebPart/TaoObraWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "TaoObraWebPartStrings": "lib/webparts/taoObraWebPart/loc/{locale}.js"
+  }
+}
