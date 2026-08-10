@@ -2,12 +2,20 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/FXTAO}"
-APP_DOMAIN="${APP_DOMAIN:?Informe APP_DOMAIN, ex: tao.engetec.com.br}"
+APP_DOMAIN="${APP_DOMAIN:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@fx4.com.br}"
 TENANT_SLUG="${TENANT_SLUG:-engetec}"
 TENANT_NAME="${TENANT_NAME:-Engetec}"
 TENANT_LEGAL_NAME="${TENANT_LEGAL_NAME:-Engetec}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/backups/fxtao}"
+
+get_env_value() {
+  local key="$1"
+  if [[ ! -f deploy/.env ]]; then
+    return 0
+  fi
+  awk -F= -v key="${key}" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' deploy/.env
+}
 
 cd "${APP_DIR}"
 mkdir -p "${BACKUP_DIR}" logs
@@ -16,8 +24,23 @@ if [[ -f deploy/.env ]]; then
   cp deploy/.env "${BACKUP_DIR}/env-$(date +%Y%m%d%H%M%S).bak"
 fi
 
-POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(openssl rand -base64 36 | tr -d '\n')}"
-JWT_SECRET="${JWT_SECRET:-$(openssl rand -base64 48 | tr -d '\n')}"
+EXISTING_POSTGRES_PASSWORD="$(get_env_value POSTGRES_PASSWORD)"
+EXISTING_JWT_SECRET="$(get_env_value JWT_SECRET)"
+EXISTING_FRONTEND_URL="$(get_env_value FRONTEND_URL)"
+
+if [[ -z "${APP_DOMAIN}" && -n "${EXISTING_FRONTEND_URL}" ]]; then
+  APP_DOMAIN="${EXISTING_FRONTEND_URL#https://}"
+  APP_DOMAIN="${APP_DOMAIN#http://}"
+  APP_DOMAIN="${APP_DOMAIN%%/*}"
+fi
+
+if [[ -z "${APP_DOMAIN}" ]]; then
+  echo "Informe APP_DOMAIN, ex: tao.engetec.com.br" >&2
+  exit 1
+fi
+
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${EXISTING_POSTGRES_PASSWORD:-$(openssl rand -base64 36 | tr -d '\n')}}"
+JWT_SECRET="${JWT_SECRET:-${EXISTING_JWT_SECRET:-$(openssl rand -base64 48 | tr -d '\n')}}"
 
 cat > deploy/.env <<EOF
 POSTGRES_DB=fxtao_db
