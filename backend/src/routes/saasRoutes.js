@@ -11,6 +11,7 @@ router.use(authMiddleware);
 router.post('/bootstrap', saasController.bootstrap);
 router.get('/tenants', saasController.listTenants);
 router.post('/tenants', saasController.createTenant);
+router.put('/tenants/:id', saasController.updateTenant);
 router.get('/plans', saasController.listPlans);
 router.get('/audit-logs', saasController.listAuditLogs);
 

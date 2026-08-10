@@ -31,8 +31,10 @@ import { format } from 'date-fns';
 
 export default function Layout({ children, currentPageName }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, assistedTenant, endAssistedAccess } = useAuth();
   const queryClient = useQueryClient();
+  const isFx4Admin = user?.role === 'admin';
+  const isCentralFx4Mode = isFx4Admin && !assistedTenant;
 
   // Notifications Logic
   const { data: notifications } = useQuery({
@@ -47,7 +49,7 @@ export default function Layout({ children, currentPageName }) {
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 10);
     },
-    enabled: !!user?.email,
+    enabled: !!user?.email && !isCentralFx4Mode,
     refetchInterval: 30000 // Poll every 30s
   });
 
@@ -65,7 +67,8 @@ export default function Layout({ children, currentPageName }) {
       const res = await api.get('/resources/system-configs');
       return res.data || [];
     },
-    staleTime: 1000 * 60 * 5 // 5 minutes
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !isCentralFx4Mode,
   });
 
   const clientLogoUrl = systemConfigs?.find(c => c.key === 'client_logo_url')?.value;
@@ -75,7 +78,7 @@ export default function Layout({ children, currentPageName }) {
     logout();
   };
 
-  const menuItems = [
+  const clientMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: 'Dashboard' },
     { icon: Layers, label: 'TAO', path: 'TaoList' },
     { icon: Map, label: 'Mapa de Calor', path: 'Heatmap' },
@@ -84,8 +87,14 @@ export default function Layout({ children, currentPageName }) {
     { icon: Settings, label: 'Configurações', path: 'Settings' },
     { icon: BookOpen, label: 'Manual do Sistema', path: 'Manual' },
     ...(user?.role === 'admin' ? [{ icon: Users, label: 'Usuários', path: 'Users' }] : []),
-    ...(user?.role === 'admin' ? [{ icon: ShieldCheck, label: 'Painel SaaS FX4', path: 'SaasAdmin' }] : []),
   ];
+
+  const centralMenuItems = [
+    { icon: Settings, label: 'Configurações', path: 'Settings' },
+    { icon: ShieldCheck, label: 'Painel SaaS FX4', path: 'SaasAdmin' },
+  ];
+
+  const menuItems = isCentralFx4Mode ? centralMenuItems : clientMenuItems;
 
   // Filter menu items for non-admin users
   const filteredMenuItems = user?.role !== 'admin'
@@ -99,8 +108,12 @@ export default function Layout({ children, currentPageName }) {
         <div className="p-6 border-b border-slate-800 flex flex-col items-center gap-2">
           <img src={fx4LogoUrl} alt="FX4 Logo" className="h-14 w-auto" />
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-slate-200 tracking-wider">FX4 Apps - TAO</span>
-            <span className="text-xs text-slate-500">by FX4 Tecnologia 2026</span>
+            <span className="text-lg font-bold text-slate-200 tracking-wider">
+              {assistedTenant ? `FXTAO - ${assistedTenant.display_name}` : 'FXTAO SaaS'}
+            </span>
+            <span className="text-xs text-slate-500">
+              {assistedTenant ? 'Acesso assistido FX4' : 'Administração FX4'}
+            </span>
           </div>
         </div>
 
@@ -144,11 +157,23 @@ export default function Layout({ children, currentPageName }) {
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {user?.full_name || 'Usuário'}
+                {assistedTenant ? `Suporte FX4 em ${assistedTenant.display_name}` : (user?.full_name || 'Usuário')}
               </p>
+              {assistedTenant && (
+                <p className="text-xs text-slate-500 truncate">Administrador · Visão de negócio</p>
+              )}
 
             </div>
           </div>
+          {assistedTenant && (
+            <Button
+              variant="outline"
+              className="mb-2 w-full justify-start border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white"
+              onClick={endAssistedAccess}
+            >
+              Retornar à administração FX4
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"

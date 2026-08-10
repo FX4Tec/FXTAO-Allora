@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const taoController = require('../controllers/taoController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const tenantDatabaseMiddleware = require('../middlewares/tenantDatabaseMiddleware');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
+router.use(tenantDatabaseMiddleware);
 
 // CRUD
 router.get('/', taoController.list);

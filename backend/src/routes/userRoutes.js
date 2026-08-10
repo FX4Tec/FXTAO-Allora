@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const tenantDatabaseMiddleware = require('../middlewares/tenantDatabaseMiddleware');
 
 // All user routes required authentication
 router.use(authMiddleware);
+router.use(tenantDatabaseMiddleware);
 
 // Apply strict admin check for modifying users? 
 // For now, let's assume any authenticated user can list (for assigners) 

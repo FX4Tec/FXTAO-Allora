@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+const { catalogPrisma: prisma } = require('../services/prismaService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sanitizeTenant, writeAuditLog } = require('../services/saasCatalogService');
 
-const prisma = new PrismaClient();
 const loginAttempts = new Map();
 
 const getLoginKey = (req, email) => `${req.ip || 'unknown'}:${String(email || '').toLowerCase()}`;

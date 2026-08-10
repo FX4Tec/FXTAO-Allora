@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../services/prismaService');
 
-const prisma = new PrismaClient();
 
 const STATUS_TO_CODE = {
     start: 'start',

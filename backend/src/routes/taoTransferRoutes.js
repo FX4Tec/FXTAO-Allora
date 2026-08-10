@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 
 const authMiddleware = require('../middlewares/authMiddleware');
+const tenantDatabaseMiddleware = require('../middlewares/tenantDatabaseMiddleware');
 const requireElevatedRole = require('../middlewares/requireElevatedRole');
 const taoTransferController = require('../controllers/taoTransferController');
 
@@ -31,6 +32,7 @@ const upload = multer({
 });
 
 router.use(authMiddleware);
+router.use(tenantDatabaseMiddleware);
 router.use(requireElevatedRole);
 
 router.get('/template', taoTransferController.downloadTemplate);

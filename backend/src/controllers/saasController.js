@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { catalogPrisma: prisma, getTenantClient } = require('../services/prismaService');
 const crypto = require('crypto');
 const {
     ensureBootstrapTenant,
@@ -8,7 +8,6 @@ const {
     writeAuditLog,
 } = require('../services/saasCatalogService');
 
-const prisma = new PrismaClient();
 
 const isFx4Admin = (user) => ['admin', 'director'].includes(user?.role);
 
@@ -28,6 +27,32 @@ const requireFx4Admin = async (req, res) => {
     }
     return user;
 };
+
+const tenantStats = async (tenant) => {
+    if (!tenant?.database_url) return { users_count: 0, taos_count: 0, database_status: 'not_configured' };
+
+    try {
+        const client = getTenantClient(tenant.database_url);
+        const [users_count, taos_count] = await Promise.all([
+            client.user.count(),
+            client.tao.count(),
+        ]);
+
+        return { users_count, taos_count, database_status: 'connected' };
+    } catch (error) {
+        return {
+            users_count: 0,
+            taos_count: 0,
+            database_status: 'error',
+            database_error: error.message,
+        };
+    }
+};
+
+const tenantResponse = async (tenant) => ({
+    ...sanitizeTenant(tenant),
+    stats: await tenantStats(tenant),
+});
 
 exports.context = async (req, res) => {
     res.json({
@@ -64,7 +89,7 @@ exports.listTenants = async (req, res) => {
     if (!user) return;
 
     try {
-        const tenants = (await safeListTenants()).map(sanitizeTenant);
+        const tenants = await Promise.all((await safeListTenants()).map(tenantResponse));
         res.json(tenants);
     } catch (error) {
         res.status(500).json({ error: 'Falha ao listar tenants.', details: error.message });
@@ -130,9 +155,95 @@ exports.createTenant = async (req, res) => {
             afterData: { slug, display_name },
         });
 
-        res.status(201).json(sanitizeTenant(tenant));
+        res.status(201).json(await tenantResponse(tenant));
     } catch (error) {
         res.status(500).json({ error: 'Falha ao criar tenant.', details: error.message });
+    }
+};
+
+exports.updateTenant = async (req, res) => {
+    const user = await requireFx4Admin(req, res);
+    if (!user) return;
+
+    try {
+        const { id } = req.params;
+        const existing = await prisma.saasTenant.findUnique({
+            where: { id },
+            include: { domains: true, sso_configs: true },
+        });
+
+        if (!existing) {
+            return res.status(404).json({ error: 'Tenant não encontrado.' });
+        }
+
+        const allowedFields = [
+            'slug',
+            'display_name',
+            'legal_name',
+            'document',
+            'primary_domain',
+            'app_subdomain',
+            'plan_code',
+            'database_label',
+            'commercial_status',
+            'operational_status',
+            'local_login_enabled',
+            'microsoft_login_enabled',
+            'support_notes',
+        ];
+
+        const data = {};
+        allowedFields.forEach((field) => {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        });
+
+        const tenant = await prisma.saasTenant.update({
+            where: { id },
+            data,
+            include: { domains: true, sso_configs: true },
+        });
+
+        if (data.primary_domain) {
+            await prisma.saasTenantDomain.upsert({
+                where: { hostname: data.primary_domain },
+                update: {
+                    tenant_id: tenant.id,
+                    is_primary: true,
+                    proxy_status: 'active',
+                    ssl_status: 'active',
+                },
+                create: {
+                    id: crypto.randomUUID(),
+                    tenant_id: tenant.id,
+                    hostname: data.primary_domain,
+                    is_primary: true,
+                    proxy_status: 'active',
+                    ssl_status: 'active',
+                },
+            });
+
+            await prisma.saasTenantDomain.updateMany({
+                where: {
+                    tenant_id: tenant.id,
+                    hostname: { not: data.primary_domain },
+                },
+                data: { is_primary: false },
+            });
+        }
+
+        await writeAuditLog({
+            req,
+            tenantId: tenant.id,
+            userEmail: user.email,
+            action: 'saas.tenant.update',
+            resource: 'saas_tenants',
+            beforeData: { slug: existing.slug, display_name: existing.display_name },
+            afterData: { slug: tenant.slug, display_name: tenant.display_name },
+        });
+
+        res.json(await tenantResponse(tenant));
+    } catch (error) {
+        res.status(500).json({ error: 'Falha ao atualizar tenant.', details: error.message });
     }
 };
 

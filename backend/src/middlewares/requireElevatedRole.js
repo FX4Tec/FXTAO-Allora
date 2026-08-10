@@ -1,9 +1,13 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../services/prismaService');
 
-const prisma = new PrismaClient();
 
 module.exports = async (req, res, next) => {
     try {
+        if (req.fx4User && ['admin', 'director'].includes(req.fx4User.role)) {
+            req.currentUserRole = req.fx4User.role;
+            return next();
+        }
+
         if (!req.userId) {
             return res.status(401).json({ error: 'Unauthorized' });
         }

@@ -1,10 +1,9 @@
 const axios = require('axios');
-const { PrismaClient } = require('@prisma/client');
+const { catalogPrisma: prisma } = require('../services/prismaService');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { writeAuditLog } = require('../services/saasCatalogService');
 
-const prisma = new PrismaClient();
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;

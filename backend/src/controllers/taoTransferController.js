@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../services/prismaService');
 const readXlsxFile = require('read-excel-file/node');
 const writeXlsxFile = require('write-excel-file/node');
 const { parse: parseCsv } = require('csv-parse/sync');
@@ -12,7 +12,6 @@ const {
     RESTRICTED_TAO_FIELDS,
 } = require('../constants/taoAllora');
 
-const prisma = new PrismaClient();
 
 const STATUS_IMPORT_MAP = {
     start: 'start',
@@ -231,7 +230,10 @@ const cleanString = (value) => {
 
 const hasValue = (value) => cleanString(value) !== '';
 
-const canViewRestricted = async (userId) => {
+const canViewRestricted = async (reqOrUserId) => {
+    if (typeof reqOrUserId === 'object' && reqOrUserId?.fx4User) return true;
+
+    const userId = typeof reqOrUserId === 'object' ? reqOrUserId?.userId : reqOrUserId;
     if (!userId) return false;
 
     const user = await prisma.user.findUnique({
@@ -869,7 +871,7 @@ exports.downloadTemplate = async (req, res) => {
             return res.status(400).json({ error: 'Formato inválido. Use xlsx ou csv.' });
         }
 
-        const allowRestricted = await canViewRestricted(req.userId);
+        const allowRestricted = await canViewRestricted(req);
         const columns = getVisibleColumns(allowRestricted);
         const rows = buildTemplateRows(allowRestricted);
         const fileBuffer = await createSheetBuffer(rows, format, columns);
@@ -897,7 +899,7 @@ exports.exportData = async (req, res) => {
             return res.status(400).json({ error: 'Formato inválido. Use xlsx ou csv.' });
         }
 
-        const allowRestricted = await canViewRestricted(req.userId);
+        const allowRestricted = await canViewRestricted(req);
         const columns = getVisibleColumns(allowRestricted);
         const taos = await prisma.tao.findMany({
             orderBy: { created_at: 'desc' },
@@ -937,7 +939,7 @@ exports.importData = async (req, res) => {
         const rawRows = await parseImportedFile(req.file);
         const rows = normalizeImportedRows(rawRows);
         const groups = groupRows(rows);
-        const allowRestricted = await canViewRestricted(req.userId);
+        const allowRestricted = await canViewRestricted(req);
 
         if (!groups.size) {
             return res.status(400).json({ error: 'Nenhuma linha válida encontrada para importação.' });

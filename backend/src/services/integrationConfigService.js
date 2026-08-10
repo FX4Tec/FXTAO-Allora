@@ -1,7 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('./prismaService');
 const crypto = require('crypto');
 
-const prisma = new PrismaClient();
 
 const ALL_SCOPES = ['works.read', 'financial.read', 'team.read', 'lookup.read'];
 const IP_FILTER_KEY = 'integration_ip_filter_enabled';

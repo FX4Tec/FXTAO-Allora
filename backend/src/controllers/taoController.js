@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../services/prismaService');
 const {
     DIRECT_BILLING_DOCUMENT_DEFINITIONS,
     INITIAL_CHECKLIST_DEFINITIONS,
@@ -23,7 +23,6 @@ const {
     LIFECYCLE_STATUSES,
 } = require('../services/taoSiengeService');
 
-const prisma = new PrismaClient();
 
 const MANAGED_CONTACT_ROLES = [
     'Contato Cliente',
@@ -681,16 +680,29 @@ const sanitizeTaoResponse = (tao, user) => {
     return serialized;
 };
 
-const getRequestUser = async (userId) => prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-        id: true,
-        email: true,
-        full_name: true,
-        role: true,
-        can_view_restricted_tao_fields: true,
-    },
-});
+const getRequestUser = async (reqOrUserId) => {
+    if (typeof reqOrUserId === 'object' && reqOrUserId?.fx4User) {
+        return {
+            id: reqOrUserId.fx4User.id,
+            email: reqOrUserId.fx4User.email,
+            full_name: reqOrUserId.fx4User.full_name || 'Administrador FX4',
+            role: reqOrUserId.fx4User.role,
+            can_view_restricted_tao_fields: true,
+        };
+    }
+
+    const userId = typeof reqOrUserId === 'object' ? reqOrUserId?.userId : reqOrUserId;
+    return prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            email: true,
+            full_name: true,
+            role: true,
+            can_view_restricted_tao_fields: true,
+        },
+    });
+};
 
 const ensureTaoExists = async (transaction, taoId, currentTaoId = null) => {
     if (!siengeHasValue(taoId)) return null;
@@ -1204,7 +1216,7 @@ const buildAuditSnapshot = (tao = {}) => ({
 // Create new TAO
 exports.create = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         const body = sanitizeWriteBody(req.body || {}, user);
         const data = buildTaoData(body, user);
         data.created_by_id = req.userId;
@@ -1256,7 +1268,7 @@ exports.create = async (req, res) => {
 // List all TAOs (with simple pagination/filter support)
 exports.list = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         const {
             page = 1,
             limit = 10,
@@ -1317,7 +1329,7 @@ exports.list = async (req, res) => {
 // Get TAO by ID
 exports.getById = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         const { id } = req.params;
         const tao = await prisma.tao.findUnique({
             where: { id },
@@ -1338,7 +1350,7 @@ exports.getById = async (req, res) => {
 // Update TAO
 exports.update = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         const { id } = req.params;
         const body = sanitizeWriteBody(req.body || {}, user);
         const data = buildTaoData(body, user);
@@ -1444,7 +1456,7 @@ exports.update = async (req, res) => {
 // Delete TAO
 exports.delete = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         if (!user || !['admin', 'director'].includes(user.role)) {
             return res.status(403).json({ error: 'Apenas administradores e diretores podem excluir uma TAO.' });
         }
@@ -1459,7 +1471,7 @@ exports.delete = async (req, res) => {
 
 exports.decideApproval = async (req, res) => {
     try {
-        const user = await getRequestUser(req.userId);
+        const user = await getRequestUser(req);
         const action = cleanString(req.body?.action).toLowerCase();
         const comments = cleanString(req.body?.comments) || null;
         if (!['approved', 'rejected'].includes(action)) {

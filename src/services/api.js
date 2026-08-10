@@ -9,6 +9,19 @@ api.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const assistedTenant = localStorage.getItem('assistedTenant');
+    if (assistedTenant) {
+        try {
+            const tenant = JSON.parse(assistedTenant);
+            if (tenant?.slug) {
+                config.headers['X-FX4-Tenant-Slug'] = tenant.slug;
+            }
+        } catch (error) {
+            localStorage.removeItem('assistedTenant');
+        }
+    }
+
     return config;
 });
 

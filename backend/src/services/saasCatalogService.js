@@ -1,7 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
-
-const prisma = new PrismaClient();
+const { catalogPrisma: prisma } = require('./prismaService');
 
 const normalizeHostname = (host) => String(host || '')
     .trim()
@@ -153,6 +151,30 @@ const findTenantByHost = async (host) => {
     }
 };
 
+const findTenantBySlugOrHost = async (value) => {
+    const normalized = normalizeHostname(value);
+    if (!normalized) return null;
+
+    try {
+        const tenant = await prisma.saasTenant.findFirst({
+            where: {
+                OR: [
+                    { slug: normalized },
+                    { primary_domain: normalized },
+                    { app_subdomain: normalized },
+                    { domains: { some: { hostname: normalized } } },
+                ],
+            },
+            include: { domains: true, sso_configs: true },
+        });
+
+        return tenant ? { ...tenant, source: 'catalog' } : null;
+    } catch (error) {
+        if (isMissingCatalogError(error)) return null;
+        throw error;
+    }
+};
+
 const safeListTenants = async () => {
     try {
         return await prisma.saasTenant.findMany({
@@ -197,6 +219,7 @@ module.exports = {
     ensureDefaultPlan,
     ensureBootstrapTenant,
     findTenantByHost,
+    findTenantBySlugOrHost,
     safeListTenants,
     writeAuditLog,
 };
