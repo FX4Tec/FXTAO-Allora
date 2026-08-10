@@ -4,6 +4,7 @@ const {
     ensureBootstrapTenant,
     ensureDefaultPlan,
     safeListTenants,
+    sanitizeTenant,
     writeAuditLog,
 } = require('../services/saasCatalogService');
 
@@ -30,7 +31,7 @@ const requireFx4Admin = async (req, res) => {
 
 exports.context = async (req, res) => {
     res.json({
-        tenant: req.tenant || null,
+        tenant: sanitizeTenant(req.tenant),
         strategy: 'database_per_tenant',
         isolation: 'Banco separado por cliente. A base atual está registrada como tenant Engetec.',
     });
@@ -51,7 +52,7 @@ exports.bootstrap = async (req, res) => {
             resource: 'saas_tenants',
             afterData: { tenant_slug: tenant.slug, plan_code: plan.code },
         });
-        res.json({ tenant, plan });
+        res.json({ tenant: sanitizeTenant(tenant), plan });
     } catch (error) {
         console.error('Failed to bootstrap SaaS catalog:', error);
         res.status(500).json({ error: 'Falha ao inicializar catálogo SaaS.', details: error.message });
@@ -63,7 +64,7 @@ exports.listTenants = async (req, res) => {
     if (!user) return;
 
     try {
-        const tenants = await safeListTenants();
+        const tenants = (await safeListTenants()).map(sanitizeTenant);
         res.json(tenants);
     } catch (error) {
         res.status(500).json({ error: 'Falha ao listar tenants.', details: error.message });
@@ -129,7 +130,7 @@ exports.createTenant = async (req, res) => {
             afterData: { slug, display_name },
         });
 
-        res.status(201).json(tenant);
+        res.status(201).json(sanitizeTenant(tenant));
     } catch (error) {
         res.status(500).json({ error: 'Falha ao criar tenant.', details: error.message });
     }

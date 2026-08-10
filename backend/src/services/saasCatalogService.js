@@ -43,6 +43,30 @@ const fallbackTenant = () => {
     };
 };
 
+const sanitizeTenant = (tenant) => {
+    if (!tenant) return null;
+
+    const {
+        database_url,
+        sso_configs,
+        ...safeTenant
+    } = tenant;
+
+    return {
+        ...safeTenant,
+        has_database_url: Boolean(database_url),
+        sso_configs: Array.isArray(sso_configs)
+            ? sso_configs.map((config) => {
+                const { client_secret_encrypted, ...safeConfig } = config;
+                return {
+                    ...safeConfig,
+                    has_client_secret: Boolean(client_secret_encrypted),
+                };
+            })
+            : undefined,
+    };
+};
+
 const ensureDefaultPlan = async () => prisma.saasPlan.upsert({
     where: { code: process.env.SAAS_DEFAULT_PLAN_CODE || 'enterprise' },
     update: {
@@ -169,6 +193,7 @@ module.exports = {
     prisma,
     normalizeHostname,
     fallbackTenant,
+    sanitizeTenant,
     ensureDefaultPlan,
     ensureBootstrapTenant,
     findTenantByHost,

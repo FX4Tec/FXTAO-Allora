@@ -1,5 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
-const XLSX = require('xlsx');
+const readXlsxFile = require('read-excel-file/node');
+const writeXlsxFile = require('write-excel-file/node');
+const { parse: parseCsv } = require('csv-parse/sync');
+const { stringify: stringifyCsv } = require('csv-stringify/sync');
+const path = require('path');
 
 const {
     DIRECT_BILLING_DOCUMENT_DEFINITIONS,
@@ -363,20 +367,56 @@ const formatScalarForExport = (type, value) => {
     return value;
 };
 
-const createSheetBuffer = (rows, format, columns) => {
-    const worksheet = XLSX.utils.aoa_to_sheet([
+const createSheetBuffer = async (rows, format, columns) => {
+    const values = [
         columns.map((column) => column.label),
         ...rows.map((row) => columns.map((column) => row[column.key] ?? '')),
-    ]);
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'TAO');
+    ];
 
     if (format === 'csv') {
-        return Buffer.from(XLSX.utils.sheet_to_csv(worksheet), 'utf8');
+        return Buffer.from(stringifyCsv(values, { bom: true }), 'utf8');
     }
 
-    return XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+    const workbook = await writeXlsxFile(values, {
+        sheet: 'TAO',
+        buffer: true,
+    });
+
+    if (typeof workbook.toBuffer === 'function') {
+        return workbook.toBuffer();
+    }
+
+    return Buffer.from(workbook);
+};
+
+const parseImportedFile = async (file) => {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+
+    if (extension === '.csv' || file.mimetype === 'text/csv' || file.mimetype === 'application/csv') {
+        const rows = parseCsv(file.buffer, {
+            bom: true,
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+        });
+        return rows;
+    }
+
+    const workbookRows = await readXlsxFile(file.buffer);
+    const rows = Array.isArray(workbookRows?.[0]?.data) ? workbookRows[0].data : workbookRows;
+    const [headerRow, ...dataRows] = rows;
+
+    if (!headerRow?.length) {
+        return [];
+    }
+
+    return dataRows.map((dataRow) => {
+        const row = {};
+        headerRow.forEach((header, index) => {
+            row[header] = dataRow[index] ?? '';
+        });
+        return row;
+    });
 };
 
 const normalizeImportedRows = (rawRows = []) =>
@@ -832,7 +872,7 @@ exports.downloadTemplate = async (req, res) => {
         const allowRestricted = await canViewRestricted(req.userId);
         const columns = getVisibleColumns(allowRestricted);
         const rows = buildTemplateRows(allowRestricted);
-        const fileBuffer = createSheetBuffer(rows, format, columns);
+        const fileBuffer = await createSheetBuffer(rows, format, columns);
         const fileName = `fxtao-mascara-importacao-allora.${format}`;
 
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
@@ -870,7 +910,7 @@ exports.exportData = async (req, res) => {
         });
 
         const rows = buildExportRows(taos, allowRestricted);
-        const fileBuffer = createSheetBuffer(rows.length ? rows : buildTemplateRows(allowRestricted), format, columns);
+        const fileBuffer = await createSheetBuffer(rows.length ? rows : buildTemplateRows(allowRestricted), format, columns);
         const fileName = `fxtao-export-allora-${new Date().toISOString().slice(0, 10)}.${format}`;
 
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
@@ -894,14 +934,7 @@ exports.importData = async (req, res) => {
             return res.status(400).json({ error: 'Nenhum arquivo foi enviado.' });
         }
 
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer', raw: false });
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
-            return res.status(400).json({ error: 'Arquivo sem planilha válida.' });
-        }
-
-        const worksheet = workbook.Sheets[firstSheetName];
-        const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+        const rawRows = await parseImportedFile(req.file);
         const rows = normalizeImportedRows(rawRows);
         const groups = groupRows(rows);
         const allowRestricted = await canViewRestricted(req.userId);

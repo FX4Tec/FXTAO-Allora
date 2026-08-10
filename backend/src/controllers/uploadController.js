@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../../uploads');
@@ -13,15 +14,38 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // Unique filename: timestamp-random-originalName
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
+        const extension = path.extname(file.originalname || '').toLowerCase();
+        cb(null, `${Date.now()}-${crypto.randomUUID()}${extension}`);
     }
 });
 
+const allowedMimeTypes = new Set([
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'text/plain',
+    'text/csv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    limits: {
+        fileSize: Number(process.env.UPLOAD_MAX_FILE_SIZE_MB || 10) * 1024 * 1024,
+        files: 1,
+        fields: 10,
+        parts: 12,
+    },
+    fileFilter: (req, file, cb) => {
+        if (!allowedMimeTypes.has(file.mimetype)) {
+            return cb(new Error('Tipo de arquivo não permitido.'));
+        }
+        return cb(null, true);
+    },
 });
 
 // Middleware for single file upload 'file'
@@ -47,4 +71,14 @@ exports.uploadFile = (req, res) => {
     const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
 
     res.json({ file_url: fileUrl, filename: req.file.filename, mimetype: req.file.mimetype });
+};
+
+exports.handleUploadError = (err, req, res, next) => {
+    if (!err) return next();
+
+    if (err instanceof multer.MulterError || err.message === 'Tipo de arquivo não permitido.') {
+        return res.status(400).json({ error: err.message });
+    }
+
+    return next(err);
 };

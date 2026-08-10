@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { writeAuditLog } = require('../services/saasCatalogService');
+const { sanitizeTenant, writeAuditLog } = require('../services/saasCatalogService');
 
 const prisma = new PrismaClient();
 const loginAttempts = new Map();
@@ -169,7 +169,7 @@ exports.login = async (req, res) => {
             resource: 'auth',
         });
 
-        res.status(200).json({ token, user: userWithoutPassword, tenant });
+        res.status(200).json({ token, user: userWithoutPassword, tenant: sanitizeTenant(tenant) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -182,7 +182,7 @@ exports.me = async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         const { password_hash: _, ...userWithoutPassword } = user;
-        res.json({ ...userWithoutPassword, tenant: req.tenant || null });
+        res.json({ ...userWithoutPassword, tenant: sanitizeTenant(req.tenant) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

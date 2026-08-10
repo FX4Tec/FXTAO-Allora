@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { writeAuditLog } = require('../services/saasCatalogService');
 
 const prisma = new PrismaClient();
@@ -9,16 +10,74 @@ const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
 const TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
 const REDIRECT_URI = process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:3000/api/auth/microsoft/callback';
+const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+const signStatePayload = (payload) => {
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto
+        .createHmac('sha256', process.env.JWT_SECRET || 'development-secret')
+        .update(encodedPayload)
+        .digest('base64url');
+    return `${encodedPayload}.${signature}`;
+};
+
+const verifyState = (state) => {
+    try {
+        const [encodedPayload, signature] = String(state || '').split('.');
+        if (!encodedPayload || !signature) return null;
+
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.JWT_SECRET || 'development-secret')
+            .update(encodedPayload)
+            .digest('base64url');
+
+        const receivedBuffer = Buffer.from(signature);
+        const expectedBuffer = Buffer.from(expectedSignature);
+        if (
+            receivedBuffer.length !== expectedBuffer.length
+            || !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+        ) {
+            return null;
+        }
+
+        const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+        if (!payload.createdAt || Date.now() - payload.createdAt > STATE_MAX_AGE_MS) {
+            return null;
+        }
+
+        return payload;
+    } catch (error) {
+        return null;
+    }
+};
 
 // 1. Redirect to Microsoft Login
-exports.initiateMicrosoftLogin = (req, res) => {
+exports.initiateMicrosoftLogin = async (req, res) => {
+    if (req.tenant && req.tenant.microsoft_login_enabled === false) {
+        await writeAuditLog({
+            req,
+            tenantId: req.tenant.id,
+            action: 'auth.sso.disabled',
+            resource: 'auth',
+            result: 'blocked',
+        });
+        return res.status(403).json({ error: 'Login Microsoft desabilitado para este ambiente.' });
+    }
+
+    const state = signStatePayload({
+        nonce: crypto.randomUUID(),
+        createdAt: Date.now(),
+        tenantId: req.tenant?.id || null,
+        host: req.headers['x-forwarded-host'] || req.headers.host || null,
+    });
+
     const params = new URLSearchParams({
         client_id: CLIENT_ID,
         response_type: 'code',
         redirect_uri: REDIRECT_URI,
         response_mode: 'query',
         scope: 'openid profile email User.Read',
-        state: '12345' // Should be random in production
+        state,
     });
 
     const url = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize?${params.toString()}`;
@@ -27,10 +86,21 @@ exports.initiateMicrosoftLogin = (req, res) => {
 
 // 2. Handle Callback
 exports.handleMicrosoftCallback = async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query;
 
     if (!code) {
         return res.status(400).send('No code received from Microsoft.');
+    }
+
+    if (!verifyState(state)) {
+        await writeAuditLog({
+            req,
+            tenantId: req.tenant?.id,
+            action: 'auth.sso.invalid_state',
+            resource: 'auth',
+            result: 'blocked',
+        });
+        return res.status(400).send('Invalid Microsoft login state.');
     }
 
     try {
@@ -49,9 +119,6 @@ exports.handleMicrosoftCallback = async (req, res) => {
             { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
 
-        console.log('SSO: Token received. Status:', tokenResponse.status);
-        console.log('SSO: Token data keys:', Object.keys(tokenResponse.data));
-
         const accessToken = tokenResponse.data.access_token;
         if (!accessToken) {
             console.error('SSO Error: No access_token in response', tokenResponse.data);
@@ -64,7 +131,6 @@ exports.handleMicrosoftCallback = async (req, res) => {
         });
 
         const userProfile = profileResponse.data; // { id, displayName, mail, userPrincipalName }
-        console.log('SSO: Profile received:', JSON.stringify(userProfile));
 
         const email = userProfile.mail || userProfile.userPrincipalName;
 
