@@ -101,7 +101,7 @@ ufw allow 443/tcp
 ufw --force enable
 
 if [[ "${DISABLE_PASSWORD_SSH}" == "true" ]]; then
-  cat >/etc/ssh/sshd_config.d/99-fxtao-hardening.conf <<EOF
+  cat >/etc/ssh/sshd_config.d/01-fxtao-hardening.conf <<EOF
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -109,6 +109,9 @@ PubkeyAuthentication yes
 MaxAuthTries 3
 AllowUsers ${DEPLOY_USER} root
 EOF
+  if [[ -f /etc/ssh/sshd_config.d/50-cloud-init.conf ]]; then
+    printf 'PasswordAuthentication no\n' > /etc/ssh/sshd_config.d/50-cloud-init.conf
+  fi
   sshd -t
   systemctl reload ssh || systemctl reload sshd
 fi
