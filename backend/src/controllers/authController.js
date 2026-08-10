@@ -1,7 +1,23 @@
-const { catalogPrisma: prisma } = require('../services/prismaService');
+const { catalogPrisma: prisma, getTenantClient } = require('../services/prismaService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sanitizeTenant, writeAuditLog } = require('../services/saasCatalogService');
+
+const dbForRequest = (req) => (req.tenant?.database_url ? getTenantClient(req.tenant.database_url) : prisma);
+
+const userSelect = {
+    id: true,
+    email: true,
+    full_name: true,
+    role: true,
+    can_view_restricted_tao_fields: true,
+    auth_provider: true,
+    sso_id: true,
+    avatar_url: true,
+    is_active: true,
+    created_at: true,
+    updated_at: true,
+};
 
 const loginAttempts = new Map();
 
@@ -71,6 +87,7 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const tenant = req.tenant;
+        const authDb = dbForRequest(req);
 
         if (tenant && tenant.local_login_enabled === false) {
             await writeAuditLog({
@@ -97,7 +114,7 @@ exports.login = async (req, res) => {
         }
 
         console.log(`Login attempt for: ${email}`);
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await authDb.user.findUnique({ where: { email } });
         if (!user) {
             console.log('User not found');
             registerFailedLogin(req, email);
@@ -177,20 +194,81 @@ exports.login = async (req, res) => {
 // Get current user
 exports.me = async (req, res) => {
     try {
-        const user = await prisma.user.findUnique({ where: { id: req.userId } });
+        if (req.tenant?.id && req.tokenTenantId && req.tokenTenantId !== req.tenant.id) {
+            return res.status(403).json({ error: 'Token não pertence a este tenant.' });
+        }
+
+        const authDb = dbForRequest(req);
+        const user = await authDb.user.findUnique({ where: { id: req.userId }, select: userSelect });
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        const { password_hash: _, ...userWithoutPassword } = user;
-        res.json({ ...userWithoutPassword, tenant: sanitizeTenant(req.tenant) });
+        res.json({ ...user, tenant: sanitizeTenant(req.tenant) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
+
+exports.changePassword = async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body;
+        if (!current_password || !new_password) {
+            return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias.' });
+        }
+
+        if (String(new_password).length < 8) {
+            return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+        }
+
+        if (req.tenant?.id && req.tokenTenantId && req.tokenTenantId !== req.tenant.id) {
+            return res.status(403).json({ error: 'Token não pertence a este tenant.' });
+        }
+
+        const authDb = dbForRequest(req);
+        const user = await authDb.user.findUnique({ where: { id: req.userId } });
+        if (!user || !user.password_hash) {
+            return res.status(404).json({ error: 'Usuário local não encontrado.' });
+        }
+
+        const isMatch = await bcrypt.compare(current_password, user.password_hash);
+        if (!isMatch) {
+            await writeAuditLog({
+                req,
+                tenantId: req.tenant?.id,
+                userEmail: user.email,
+                action: 'auth.password_change.failed',
+                resource: 'auth',
+                result: 'failed',
+            });
+            return res.status(401).json({ error: 'Senha atual inválida.' });
+        }
+
+        const password_hash = await bcrypt.hash(new_password, 10);
+        await authDb.user.update({
+            where: { id: user.id },
+            data: { password_hash },
+        });
+
+        await writeAuditLog({
+            req,
+            tenantId: req.tenant?.id,
+            userEmail: user.email,
+            action: 'auth.password_change.success',
+            resource: 'auth',
+        });
+
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
 // Public branding used by login page (no token required)
-exports.branding = async (_req, res) => {
+exports.branding = async (req, res) => {
     try {
-        const configs = await prisma.systemConfig.findMany({
+        const authDb = dbForRequest(req);
+        const configs = await authDb.systemConfig.findMany({
             where: { key: { in: ['client_logo_url'] } },
             select: { key: true, value: true }
         });

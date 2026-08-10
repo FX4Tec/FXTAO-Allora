@@ -1,8 +1,22 @@
 const axios = require('axios');
-const { catalogPrisma: prisma } = require('../services/prismaService');
+const { catalogPrisma: prisma, getTenantClient } = require('../services/prismaService');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { writeAuditLog } = require('../services/saasCatalogService');
+
+const dbForTenant = (tenant) => (tenant?.database_url ? getTenantClient(tenant.database_url) : prisma);
+
+const resolveTenantFromState = async (req, statePayload) => {
+    if (req.tenant?.id) return req.tenant;
+    if (!statePayload?.tenantId) return null;
+
+    const tenant = await prisma.saasTenant.findUnique({
+        where: { id: statePayload.tenantId },
+        include: { domains: true, sso_configs: true },
+    });
+
+    return tenant || null;
+};
 
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
@@ -67,6 +81,7 @@ exports.initiateMicrosoftLogin = async (req, res) => {
         nonce: crypto.randomUUID(),
         createdAt: Date.now(),
         tenantId: req.tenant?.id || null,
+        tenantSlug: req.tenant?.slug || null,
         host: req.headers['x-forwarded-host'] || req.headers.host || null,
     });
 
@@ -91,7 +106,9 @@ exports.handleMicrosoftCallback = async (req, res) => {
         return res.status(400).send('No code received from Microsoft.');
     }
 
-    if (!verifyState(state)) {
+    const statePayload = verifyState(state);
+
+    if (!statePayload) {
         await writeAuditLog({
             req,
             tenantId: req.tenant?.id,
@@ -103,6 +120,9 @@ exports.handleMicrosoftCallback = async (req, res) => {
     }
 
     try {
+        const tenant = await resolveTenantFromState(req, statePayload);
+        const authDb = dbForTenant(tenant);
+
         console.log('SSO: Exchanging code for token...');
         // Exchange code for token
         const tokenResponse = await axios.post(
@@ -140,12 +160,12 @@ exports.handleMicrosoftCallback = async (req, res) => {
 
         // Find or Create User
         console.log('SSO: Finding/Creating user for email:', email);
-        let user = await prisma.user.findUnique({ where: { email } });
+        let user = await authDb.user.findUnique({ where: { email } });
 
         if (!user) {
             console.log('SSO: Creating new user');
             const autoActivate = process.env.SSO_AUTO_ACTIVATE_NEW_USERS === 'true';
-            user = await prisma.user.create({
+            user = await authDb.user.create({
                 data: {
                     email,
                     full_name: userProfile.displayName,
@@ -158,7 +178,7 @@ exports.handleMicrosoftCallback = async (req, res) => {
 
             await writeAuditLog({
                 req,
-                tenantId: req.tenant?.id,
+                tenantId: tenant?.id,
                 userEmail: email,
                 action: autoActivate ? 'auth.sso.first_login.auto_activated' : 'auth.sso.first_login.blocked',
                 resource: 'auth',
@@ -168,7 +188,7 @@ exports.handleMicrosoftCallback = async (req, res) => {
             console.log('SSO: Updating existing user');
             // Update existing user if needed (link account)
             if (user.auth_provider === 'local' || !user.sso_id) {
-                user = await prisma.user.update({
+                user = await authDb.user.update({
                     where: { email },
                     data: {
                         auth_provider: 'microsoft',
@@ -184,7 +204,7 @@ exports.handleMicrosoftCallback = async (req, res) => {
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             await writeAuditLog({
                 req,
-                tenantId: req.tenant?.id,
+                tenantId: tenant?.id,
                 userEmail: email,
                 action: 'auth.sso.inactive_user',
                 resource: 'auth',
@@ -194,13 +214,13 @@ exports.handleMicrosoftCallback = async (req, res) => {
         }
 
         // Generate JWT
-        const token = jwt.sign({ id: user.id, role: user.role, tenant_id: req.tenant?.id || null }, process.env.JWT_SECRET, {
+        const token = jwt.sign({ id: user.id, role: user.role, tenant_id: tenant?.id || null }, process.env.JWT_SECRET, {
             expiresIn: '1d',
         });
 
         await writeAuditLog({
             req,
-            tenantId: req.tenant?.id,
+            tenantId: tenant?.id,
             userEmail: email,
             action: 'auth.sso.success',
             resource: 'auth',

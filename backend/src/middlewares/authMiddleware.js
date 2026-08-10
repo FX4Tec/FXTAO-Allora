@@ -23,6 +23,8 @@ module.exports = (req, res, next) => {
         if (err) return res.status(401).json({ error: 'Token invalid' });
 
         req.userId = decoded.id;
+        req.tokenRole = decoded.role;
+        req.tokenTenantId = decoded.tenant_id || null;
         return next();
     });
 };

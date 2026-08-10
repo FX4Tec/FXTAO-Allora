@@ -5,14 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import PermissionsManager from '@/components/PermissionsManager';
-import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon, KeyRound, ShieldCheck, UserCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCard';
 import TaoTransferCard from '@/components/settings/TaoTransferCard';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const { user, assistedTenant } = useAuth();
+  const isCentralFx4Mode = user?.role === 'admin' && !assistedTenant;
   const [clientLogoUrl, setClientLogoUrl] = useState('');
 
   // Fetch System Configs
@@ -21,7 +24,8 @@ export default function Settings() {
     queryFn: async () => {
       const res = await api.get('/resources/system-configs');
       return res.data || [];
-    }
+    },
+    enabled: !isCentralFx4Mode,
   });
 
   useEffect(() => {
@@ -68,7 +72,8 @@ export default function Settings() {
     queryFn: async () => {
       const res = await api.get('/resources/tao-global-settings');
       return res.data?.[0] || null;
-    }
+    },
+    enabled: !isCentralFx4Mode,
   });
 
   useEffect(() => {
@@ -116,9 +121,113 @@ export default function Settings() {
     mutation.mutate(settings);
   };
 
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: () => api.post('/auth/change-password', {
+      current_password: passwordForm.current_password,
+      new_password: passwordForm.new_password,
+    }),
+    onSuccess: () => {
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      toast.success('Senha atualizada com sucesso.');
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.error || 'Falha ao atualizar senha.');
+    },
+  });
+
+  const canChangePassword = passwordForm.current_password
+    && passwordForm.new_password.length >= 8
+    && passwordForm.new_password === passwordForm.confirm_password;
+
   const handleChange = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value })); // Keep as string for input, convert on save
+    setSettings(prev => ({ ...prev, [key]: value }));
   };
+
+  if (isCentralFx4Mode) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-blue-700">Configurações</p>
+          <h1 className="text-3xl font-bold text-slate-950">Meu acesso e perfil</h1>
+          <p className="text-slate-500">Consultar status do usuário, tenant ativo, perfil aplicado e trocar senha.</p>
+        </div>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-blue-700" />
+              Status do usuário conectado
+            </CardTitle>
+            <CardDescription>Esta sessão está na administração central da FX4, sem cliente selecionado.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="rounded-lg border bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Perfil</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">Master admin FX4</p>
+              <p className="text-sm text-slate-500">Sessão direta do usuário</p>
+            </div>
+            <div className="rounded-lg border bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Empresa cliente ativa</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">Nenhuma empresa selecionada</p>
+              <p className="text-sm text-slate-500">Painel SaaS FX4</p>
+            </div>
+            <div className="rounded-lg border bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Usuário</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">{user?.full_name || 'Administrador FX4'}</p>
+              <p className="text-sm text-slate-500">{user?.email}</p>
+            </div>
+            <div className="rounded-lg border bg-amber-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">Escopo autorizado</p>
+              <p className="mt-2 text-lg font-bold text-slate-950">Acesso central da plataforma FX4</p>
+              <p className="text-sm text-slate-500">Para ver dados, use acesso assistido no Painel SaaS.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-blue-700" />
+              Troca de senha
+            </CardTitle>
+            <CardDescription>Atualize a credencial local da sua conta central sem acessar dados de cliente.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Senha atual</Label>
+                <Input type="password" value={passwordForm.current_password} onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Nova senha</Label>
+                <Input type="password" value={passwordForm.new_password} onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirmar nova senha</Label>
+                <Input type="password" value={passwordForm.confirm_password} onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })} />
+              </div>
+            </div>
+            <Button disabled={!canChangePassword || passwordMutation.isPending} onClick={() => passwordMutation.mutate()}>
+              <Save className="mr-2 h-4 w-4" /> Atualizar senha
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-100 bg-blue-50/60 shadow-sm">
+          <CardContent className="flex items-start gap-3 pt-6 text-sm text-blue-900">
+            <UserCircle className="mt-0.5 h-5 w-5" />
+            <p>Como administrador central, o menu fica limitado a Configurações e Painel SaaS FX4. O acesso aos dados de Allora, CYMZ ou outro cliente acontece somente por ação explícita de acesso assistido.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
