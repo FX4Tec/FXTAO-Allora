@@ -37,6 +37,7 @@ const Login = () => {
 
     const clientLogoUrl = systemConfigs?.find(c => c.key === 'client_logo_url')?.value;
     const fx4LogoUrl = "https://fx4.com.br/wp-content/uploads/2025/07/logo-bola.png";
+    const showMicrosoftLogin = (import.meta.env.VITE_ENABLE_MICROSOFT_LOGIN ?? 'true') !== 'false';
 
     React.useEffect(() => {
         if (isAuthenticated) {
@@ -126,38 +127,41 @@ const Login = () => {
                                 {isLoading ? 'Entrando...' : 'Entrar'}
                             </Button>
 
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t" />
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-background px-2 text-muted-foreground">Or</span>
-                                </div>
-                            </div>
+                            {showMicrosoftLogin && (
+                                <>
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <span className="w-full border-t" />
+                                        </div>
+                                        <div className="relative flex justify-center text-xs uppercase">
+                                            <span className="bg-background px-2 text-muted-foreground">Or</span>
+                                        </div>
+                                    </div>
 
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full"
-                                onClick={() => {
-                                    // Save the redirect path (if any) to session storage before leaving for Microsoft
-                                    const from = location.state?.from;
-                                    if (from) {
-                                        const redirectUrl = `${from.pathname}${from.search}`;
-                                        sessionStorage.setItem('sso_redirect_url', redirectUrl);
-                                    }
-                                    window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/auth/microsoft`;
-                                }}
-                                disabled={isLoading}
-                            >
-                                <svg className="mr-2 h-4 w-4" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
-                                    <path fill="#f35325" d="M1 1h10v10H1z" />
-                                    <path fill="#81bc06" d="M12 1h10v10H12z" />
-                                    <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                                    <path fill="#ffba08" d="M12 12h10v10H12z" />
-                                </svg>
-                                Entrar com Microsoft
-                            </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => {
+                                            const from = location.state?.from;
+                                            if (from) {
+                                                const redirectUrl = `${from.pathname}${from.search}`;
+                                                sessionStorage.setItem('sso_redirect_url', redirectUrl);
+                                            }
+                                            window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/auth/microsoft`;
+                                        }}
+                                        disabled={isLoading}
+                                    >
+                                        <svg className="mr-2 h-4 w-4" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+                                            <path fill="#f35325" d="M1 1h10v10H1z" />
+                                            <path fill="#81bc06" d="M12 1h10v10H12z" />
+                                            <path fill="#05a6f0" d="M1 12h10v10H1z" />
+                                            <path fill="#ffba08" d="M12 12h10v10H12z" />
+                                        </svg>
+                                        Entrar com Microsoft
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </form>
                 </CardContent>

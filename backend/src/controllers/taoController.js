@@ -1369,7 +1369,6 @@ exports.update = async (req, res) => {
                 }
             }
             const isLocked = ['pending', 'approved'].includes(existing.approval_status)
-                || existing.status === 'step5'
                 || ['APROVADA', 'CADASTRADA_NO_SIENGE', 'CANCELADA'].includes(existing.tao_lifecycle_status);
             if (isLocked && !isPrivileged) {
                 const error = new Error('TAO bloqueada para edição durante/após aprovação.');

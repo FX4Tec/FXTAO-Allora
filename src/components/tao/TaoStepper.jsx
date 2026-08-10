@@ -5,7 +5,13 @@ const stepOrder = ['start', '1', '2', '3', '4', '5'];
 
 const getStepIndex = (stepId) => stepOrder.indexOf(stepId);
 
-export default function TaoStepper({ currentStep, completedThrough = currentStep, onStepChange }) {
+export default function TaoStepper({
+  currentStep,
+  progressStep = 'start',
+  approvalStatus = 'draft',
+  requiresApproval = false,
+  onStepChange,
+}) {
   const steps = [
     { id: 'start', label: 'Cadastro e Sienge' },
     { id: '1', label: 'Contrato e Valores' },
@@ -15,13 +21,19 @@ export default function TaoStepper({ currentStep, completedThrough = currentStep
     { id: '5', label: 'Contatos e Publicação' },
   ];
 
-  const getStepStatus = (stepId) => {
-    const currentIndex = getStepIndex(currentStep);
-    const completedIndex = getStepIndex(completedThrough);
+  const getStepVisualState = (stepId) => {
+    const progressIndex = getStepIndex(progressStep);
     const stepIndex = getStepIndex(stepId);
 
-    if (stepIndex === currentIndex) return 'current';
-    if (stepIndex <= completedIndex) return 'completed';
+    if (stepIndex === -1) return 'upcoming';
+
+    if (progressStep === '5' && stepId === '5') {
+      if (approvalStatus === 'rejected') return 'rejected';
+      if (requiresApproval && approvalStatus !== 'approved') return 'pendingApproval';
+      return 'completed';
+    }
+
+    if (stepIndex < progressIndex) return 'completed';
     return 'upcoming';
   };
 
@@ -32,18 +44,26 @@ export default function TaoStepper({ currentStep, completedThrough = currentStep
         <div className="absolute top-5 left-8 right-8 h-0.5 bg-slate-100" />
 
         {steps.map((step) => {
-          const status = getStepStatus(step.id);
+          const isCurrent = step.id === currentStep;
+          const visualState = getStepVisualState(step.id);
           return (
             <button key={step.id} onClick={() => onStepChange(step.id)} className="relative z-10 flex w-28 flex-col items-center gap-2 text-center">
               <span className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white text-sm font-medium transition-all duration-300",
-                status === 'completed' && "bg-green-500 border-green-500 text-white hover:bg-green-600",
-                status === 'current' && "bg-indigo-600 border-indigo-600 text-white shadow-md ring-4 ring-indigo-100",
-                status === 'upcoming' && "border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-500"
+                visualState === 'completed' && "bg-green-500 border-green-500 text-white hover:bg-green-600",
+                visualState === 'pendingApproval' && "bg-amber-500 border-amber-500 text-white hover:bg-amber-600",
+                visualState === 'rejected' && "bg-red-500 border-red-500 text-white hover:bg-red-600",
+                visualState === 'upcoming' && "border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-500",
+                isCurrent && "shadow-md ring-4 ring-indigo-100 border-indigo-600"
               )}>
-                {status === 'completed' ? <Check className="w-5 h-5" /> : step.id === 'start' ? <FileText className="w-5 h-5" /> : step.id}
+                {visualState === 'completed' || visualState === 'pendingApproval'
+                  ? <Check className="w-5 h-5" />
+                  : step.id === 'start' ? <FileText className="w-5 h-5" /> : step.id}
               </span>
-              <span className={cn("text-[11px] font-medium leading-tight", status === 'current' ? "text-indigo-700" : "text-slate-500")}>{step.label}</span>
+              <span className={cn(
+                "text-[11px] font-medium leading-tight",
+                isCurrent ? "text-indigo-700" : "text-slate-500"
+              )}>{step.label}</span>
             </button>
           );
         })}

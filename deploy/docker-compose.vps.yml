@@ -37,6 +37,7 @@ services:
       dockerfile: deploy/frontend.prod.Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}
+        VITE_ENABLE_MICROSOFT_LOGIN: ${VITE_ENABLE_MICROSOFT_LOGIN:-true}
     container_name: fxtao_web
     restart: always
     ports:

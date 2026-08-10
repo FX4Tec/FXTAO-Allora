@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const { writeAuditLog } = require('../services/saasCatalogService');
 
 const prisma = new PrismaClient();
 
@@ -78,16 +79,25 @@ exports.handleMicrosoftCallback = async (req, res) => {
 
         if (!user) {
             console.log('SSO: Creating new user');
-            // Create new user (No password, default role user, no permissions)
+            const autoActivate = process.env.SSO_AUTO_ACTIVATE_NEW_USERS === 'true';
             user = await prisma.user.create({
                 data: {
                     email,
                     full_name: userProfile.displayName,
                     auth_provider: 'microsoft',
                     sso_id: userProfile.id,
-                    role: 'user', // Default role
-                    // createdAt/updatedAt handled by Prisma
+                    role: 'user',
+                    is_active: autoActivate,
                 },
+            });
+
+            await writeAuditLog({
+                req,
+                tenantId: req.tenant?.id,
+                userEmail: email,
+                action: autoActivate ? 'auth.sso.first_login.auto_activated' : 'auth.sso.first_login.blocked',
+                resource: 'auth',
+                result: autoActivate ? 'success' : 'blocked',
             });
         } else {
             console.log('SSO: Updating existing user');
@@ -107,12 +117,28 @@ exports.handleMicrosoftCallback = async (req, res) => {
         if (!user.is_active) {
             console.error('SSO Error: User is inactive:', email);
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            await writeAuditLog({
+                req,
+                tenantId: req.tenant?.id,
+                userEmail: email,
+                action: 'auth.sso.inactive_user',
+                resource: 'auth',
+                result: 'blocked',
+            });
             return res.redirect(`${frontendUrl}/access-blocked`);
         }
 
         // Generate JWT
-        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
+        const token = jwt.sign({ id: user.id, role: user.role, tenant_id: req.tenant?.id || null }, process.env.JWT_SECRET, {
             expiresIn: '1d',
+        });
+
+        await writeAuditLog({
+            req,
+            tenantId: req.tenant?.id,
+            userEmail: email,
+            action: 'auth.sso.success',
+            resource: 'auth',
         });
 
         // Redirect to Frontend

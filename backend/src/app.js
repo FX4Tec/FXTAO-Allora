@@ -5,6 +5,7 @@ const taoRoutes = require('./routes/taoRoutes');
 const integrationRoutes = require('./routes/integrationRoutes');
 const integrationAdminRoutes = require('./routes/integrationAdminRoutes');
 const taoTransferRoutes = require('./routes/taoTransferRoutes');
+const tenantContextMiddleware = require('./middlewares/tenantContextMiddleware');
 
 const app = express();
 app.set('trust proxy', true);
@@ -18,8 +19,11 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+app.use(tenantContextMiddleware);
+
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/saas', require('./routes/saasRoutes'));
 app.use('/api/v1/users', require('./routes/userRoutes'));
 app.use('/api/v1/taos', taoRoutes);
 app.use('/api/v1/integrations', integrationRoutes);

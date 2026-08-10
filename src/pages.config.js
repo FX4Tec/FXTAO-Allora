@@ -9,6 +9,7 @@ import Reports from './pages/Reports';
 import Manual from './pages/Manual';
 import Login from './pages/Login';
 import Users from './pages/Users';
+import SaasAdmin from './pages/SaasAdmin';
 import __Layout from './Layout.jsx';
 
 
@@ -24,6 +25,7 @@ export const PAGES = {
     "Manual": Manual,
     "Login": Login,
     "Users": Users,
+    "SaasAdmin": SaasAdmin,
 }
 
 export const pagesConfig = {

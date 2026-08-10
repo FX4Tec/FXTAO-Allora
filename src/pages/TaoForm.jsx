@@ -93,6 +93,17 @@ const normalizeTaoRecord = (tao) => {
   return normalized;
 };
 
+const hasApprovalFlowConfigured = (tao = {}) => {
+  if (Array.isArray(tao.approvers) && tao.approvers.length > 0) return true;
+
+  return Boolean(
+    tao.engineering_approver_user_id
+    || tao.financial_approver_user_id
+    || tao.fiscal_approver_user_id
+    || tao.board_approver_user_id
+  );
+};
+
 export default function TaoForm() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -119,7 +130,7 @@ export default function TaoForm() {
   useEffect(() => {
     if (!user || !existingTao) return;
     const isAdmin = user.role === 'admin' || user.role === 'director';
-    const isLocked = (existingTao.status === '5' || existingTao.approval_status === 'approved' || existingTao.approval_status === 'pending');
+    const isLocked = (existingTao.approval_status === 'approved' || existingTao.approval_status === 'pending');
     setCanEdit(isAdmin || !isLocked);
   }, [user, existingTao]);
 
@@ -130,6 +141,16 @@ export default function TaoForm() {
       const res = await api.get('/resources/bank-accounts');
       return res.data;
     },
+  });
+
+  const { data: taoApprovers = [] } = useQuery({
+    queryKey: ['taoApprovers', id],
+    queryFn: async () => {
+      const res = await api.get('/resources/tao-approvers');
+      const allApprovers = res.data || [];
+      return allApprovers.filter((entry) => entry.tao_id === id);
+    },
+    enabled: !!id,
   });
 
   // Sync data when loaded
@@ -179,9 +200,6 @@ export default function TaoForm() {
       const isUpdate = !!id;
 
       if (isUpdate) {
-        if (existingTao?.status === '5' && user?.role !== 'admin' && user?.role !== 'director') {
-          throw new Error("TAO cadastrada. Apenas Administradores podem alterar.");
-        }
         const res = await api.put(`/taos/${id}`, data);
         result = res.data;
 
@@ -223,9 +241,9 @@ export default function TaoForm() {
     }
   });
 
-  const handleSave = async (targetStep = null) => {
+  const handleSave = async ({ nextStep = null, progressStep = null } = {}) => {
     if (!canEdit) {
-      if (targetStep) setCurrentStep(targetStep);
+      if (nextStep) setCurrentStep(nextStep);
       return;
     }
     // Validation for required fields
@@ -235,8 +253,8 @@ export default function TaoForm() {
     }
 
     const dataToSave = { ...formData };
-    if (targetStep) {
-      dataToSave.status = getFurthestStep(formData.status, targetStep);
+    if (progressStep) {
+      dataToSave.status = getFurthestStep(formData.status, progressStep);
     }
 
     try {
@@ -245,12 +263,11 @@ export default function TaoForm() {
         const normalizedSaved = normalizeTaoRecord(savedData);
         setFormData(normalizedSaved);
       }
-      if (targetStep) {
-        setCurrentStep(targetStep);
+      if (nextStep) {
+        setCurrentStep(nextStep);
       }
     } catch (error) {
       console.error("Error saving TAO:", error);
-      // Error handling is also done in mutation onError, but preventing step change here on error is good practice
     }
   };
 
@@ -258,23 +275,14 @@ export default function TaoForm() {
     const currentIndex = STEP_ORDER.indexOf(currentStep);
     if (currentIndex < STEP_ORDER.length - 1) {
       const nextStep = STEP_ORDER[currentIndex + 1];
-      handleSave(nextStep);
+      handleSave({ nextStep, progressStep: nextStep });
     } else {
-      handleSave();
+      handleSave({ progressStep: '5' });
     }
   };
 
   const handleStepClick = (stepId) => {
-    if (!canEdit) {
-      setCurrentStep(stepId);
-      return;
-    }
-    // Auto-save when switching steps manually
-    if (id) {
-      handleSave(stepId);
-    } else {
-      toast.warning("Salve o rascunho inicial antes de navegar.");
-    }
+    setCurrentStep(stepId);
   };
 
   if (isLoading) {
@@ -303,6 +311,11 @@ export default function TaoForm() {
         return <div>Step not found</div>;
     }
   };
+
+  const requiresApprovalFlow = hasApprovalFlowConfigured({
+    ...formData,
+    approvers: taoApprovers,
+  });
 
   return (
     <div className="max-w-7xl mx-auto pb-20">
@@ -361,7 +374,7 @@ export default function TaoForm() {
           </div>
         )}
         {/* Submit for Approval Button (Only if Draft or Rejected) */}
-        {id && (formData.approval_status === 'draft' || formData.approval_status === 'rejected') && (
+        {id && requiresApprovalFlow && (formData.approval_status === 'draft' || formData.approval_status === 'rejected') && (
           <Button
             variant="outline"
             className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
@@ -395,7 +408,13 @@ export default function TaoForm() {
         )}
       </div>
 
-      <TaoStepper currentStep={currentStep} completedThrough={formData.status || 'start'} onStepChange={handleStepClick} />
+      <TaoStepper
+        currentStep={currentStep}
+        progressStep={formData.status || 'start'}
+        approvalStatus={formData.approval_status || 'draft'}
+        requiresApproval={requiresApprovalFlow}
+        onStepChange={handleStepClick}
+      />
 
       <div className="mb-8">
         {renderStep()}
@@ -409,7 +428,7 @@ export default function TaoForm() {
 
         <Button
           variant="outline"
-          onClick={() => handleSave(currentStep)}
+          onClick={() => handleSave()}
           disabled={mutation.isPending || !canEdit}
         >
           <Save className="w-4 h-4 mr-2" />

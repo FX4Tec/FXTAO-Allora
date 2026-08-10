@@ -17,7 +17,8 @@ import {
   Search,
   Building2,
   HardHat,
-  Users
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -83,6 +84,7 @@ export default function Layout({ children, currentPageName }) {
     { icon: Settings, label: 'Configurações', path: 'Settings' },
     { icon: BookOpen, label: 'Manual do Sistema', path: 'Manual' },
     ...(user?.role === 'admin' ? [{ icon: Users, label: 'Usuários', path: 'Users' }] : []),
+    ...(user?.role === 'admin' ? [{ icon: ShieldCheck, label: 'Painel SaaS FX4', path: 'SaasAdmin' }] : []),
   ];
 
   // Filter menu items for non-admin users

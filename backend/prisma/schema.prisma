@@ -751,3 +751,118 @@ model SystemConfig {
   value String
   @@map("system_configs")
 }
+
+model SaasTenant {
+  id                 String             @id @default(uuid())
+  slug               String             @unique
+  display_name       String
+  legal_name         String?
+  document           String?
+  primary_domain     String?
+  app_subdomain      String?
+  plan_code          String?
+  commercial_status  String             @default("active")
+  operational_status String             @default("active")
+  database_url       String?            @db.Text
+  database_label     String?
+  local_login_enabled Boolean           @default(true)
+  microsoft_login_enabled Boolean       @default(false)
+  branding_logo_url  String?
+  support_notes      String?            @db.Text
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @updatedAt
+
+  domains            SaasTenantDomain[]
+  sso_configs        SaasSsoConfig[]
+  audit_logs         SaasAuditLog[]
+
+  @@map("saas_tenants")
+}
+
+model SaasTenantDomain {
+  id          String     @id @default(uuid())
+  tenant_id   String
+  tenant      SaasTenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  hostname    String     @unique
+  is_primary  Boolean    @default(false)
+  proxy_status String    @default("pending")
+  ssl_status   String    @default("pending")
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+
+  @@index([tenant_id])
+  @@map("saas_tenant_domains")
+}
+
+model SaasPlan {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  description     String?  @db.Text
+  monthly_value   Decimal? @db.Decimal(15, 2)
+  annual_value    Decimal? @db.Decimal(15, 2)
+  user_limit      Int?
+  work_limit      Int?
+  integration_limit Int?
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  features        SaasPlanFeature[]
+
+  @@map("saas_plans")
+}
+
+model SaasPlanFeature {
+  id          String   @id @default(uuid())
+  plan_id     String
+  plan        SaasPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  feature_key String
+  enabled     Boolean  @default(true)
+  limit_value Int?
+  created_at  DateTime @default(now())
+
+  @@unique([plan_id, feature_key])
+  @@map("saas_plan_features")
+}
+
+model SaasSsoConfig {
+  id                  String     @id @default(uuid())
+  tenant_id           String
+  tenant              SaasTenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  provider            String     @default("microsoft")
+  authority_tenant_id String?
+  client_id           String?
+  client_secret_ref   String?
+  redirect_uri        String?
+  allowed_domains     String[]   @default([])
+  is_enabled          Boolean    @default(false)
+  last_tested_at      DateTime?
+  last_test_status    String?
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+
+  @@index([tenant_id])
+  @@map("saas_sso_configs")
+}
+
+model SaasAuditLog {
+  id          String      @id @default(uuid())
+  tenant_id   String?
+  tenant      SaasTenant? @relation(fields: [tenant_id], references: [id], onDelete: SetNull)
+  user_email  String?
+  ip_address  String?
+  user_agent  String?     @db.Text
+  action      String
+  resource    String?
+  before_data Json?
+  after_data  Json?
+  result      String      @default("success")
+  trace_id    String?
+  created_at  DateTime    @default(now())
+
+  @@index([tenant_id])
+  @@index([user_email])
+  @@index([created_at])
+  @@map("saas_audit_logs")
+}
