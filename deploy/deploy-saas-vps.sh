@@ -87,6 +87,43 @@ docker cp backend/prisma/migrations/20260810_saas_catalog_foundation/migration.s
 docker exec fxtao_db psql -U admin -d fxtao_db -f /tmp/saas_catalog.sql
 docker exec fxtao node src/scripts/bootstrapSaasCatalog.js
 
+cat >/usr/local/sbin/fxtao-backup.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+BACKUP_DIR="/opt/backups/fxtao"
+mkdir -p "${BACKUP_DIR}"
+chmod 0700 "${BACKUP_DIR}"
+docker exec fxtao_db pg_dump -U admin -d fxtao_db -Fc > "${BACKUP_DIR}/fxtao_db_$(date +%Y%m%d%H%M%S).dump"
+find "${BACKUP_DIR}" -type f -name 'fxtao_db_*.dump' -mtime +14 -delete
+EOF
+chmod 0750 /usr/local/sbin/fxtao-backup.sh
+
+cat >/etc/systemd/system/fxtao-backup.service <<'EOF'
+[Unit]
+Description=FXTAO PostgreSQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/fxtao-backup.sh
+EOF
+
+cat >/etc/systemd/system/fxtao-backup.timer <<'EOF'
+[Unit]
+Description=Run FXTAO PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now fxtao-backup.timer
+
 cat >/etc/nginx/sites-available/fxtao.conf <<EOF
 server {
     listen 80;
