@@ -30,19 +30,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export default function TaoList() {
-  const { user } = useAuth();
+  const { user, assistedTenant } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState('project_name');
   const LIMIT = 10;
 
-  const { data: responseData, isLoading } = useQuery({
-    queryKey: ['taos', page, sortField],
+  const { data: responseData, isLoading, isError, error } = useQuery({
+    queryKey: ['taos', assistedTenant?.slug || 'central', page, sortField],
     queryFn: async () => {
-      const response = await api.get(`/taos?page=${page}&limit=${LIMIT}&sort_by=${sortField}&sort_order=asc`);
+      const response = await api.get(`/taos?page=${page}&limit=${LIMIT}&sort_by=${sortField}&sort_order=asc`, {
+        headers: assistedTenant?.slug ? { 'X-FX4-Tenant-Slug': assistedTenant.slug } : undefined,
+      });
       return response.data;
     },
-    keepPreviousData: true, // Keep showing previous data while loading new page
+    keepPreviousData: true,
   });
 
   const deleteMutation = useMutation({
@@ -62,8 +64,8 @@ export default function TaoList() {
     }
   };
 
-  const taos = responseData?.data || [];
-  const meta = responseData?.meta;
+  const taos = Array.isArray(responseData) ? responseData : (responseData?.data || []);
+  const meta = responseData?.meta || { total: taos.length, pages: 1 };
   const totalPages = meta?.pages || 1;
 
   const handlePreviousPage = () => {
@@ -163,6 +165,12 @@ export default function TaoList() {
                   Carregando obras...
                 </TableCell>
               </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-32 text-center text-red-600">
+                  Erro ao carregar TAOs: {error?.response?.data?.error || error?.message || 'falha desconhecida'}
+                </TableCell>
+              </TableRow>
             ) : taos?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center text-slate-500">
@@ -221,6 +229,7 @@ export default function TaoList() {
         <div className="flex items-center justify-between px-4 py-4 border-t border-slate-100 bg-slate-50/50">
           <div className="text-sm text-slate-500">
             Página <span className="font-medium">{page}</span> de <span className="font-medium">{totalPages}</span>
+            {assistedTenant?.display_name && <span className="ml-2 text-slate-400">· {assistedTenant.display_name}</span>}
           </div>
           <div className="flex gap-2">
             <Button
