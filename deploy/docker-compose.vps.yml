@@ -38,6 +38,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
         VITE_ENABLE_MICROSOFT_LOGIN: ${VITE_ENABLE_MICROSOFT_LOGIN:-true}
+        VITE_VPS_IP: ${VITE_VPS_IP:-}
     container_name: fxtao_web
     restart: always
     ports:

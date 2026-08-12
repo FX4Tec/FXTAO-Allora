@@ -6,6 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+ARG VITE_VPS_IP
+ENV VITE_VPS_IP=$VITE_VPS_IP
+
 COPY . .
 RUN npm run build
 

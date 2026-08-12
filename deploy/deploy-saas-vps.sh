@@ -27,6 +27,16 @@ fi
 EXISTING_POSTGRES_PASSWORD="$(get_env_value POSTGRES_PASSWORD)"
 EXISTING_JWT_SECRET="$(get_env_value JWT_SECRET)"
 EXISTING_FRONTEND_URL="$(get_env_value FRONTEND_URL)"
+EXISTING_VPS_IP="$(get_env_value VITE_VPS_IP)"
+
+detect_vps_ip() {
+  local detected=""
+  detected="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+  if [[ -z "${detected}" ]]; then
+    detected="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  echo "${detected}"
+}
 
 if [[ -z "${APP_DOMAIN}" && -n "${EXISTING_FRONTEND_URL}" ]]; then
   APP_DOMAIN="${EXISTING_FRONTEND_URL#https://}"
@@ -41,6 +51,7 @@ fi
 
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${EXISTING_POSTGRES_PASSWORD:-$(openssl rand -base64 36 | tr -d '\n')}}"
 JWT_SECRET="${JWT_SECRET:-${EXISTING_JWT_SECRET:-$(openssl rand -base64 48 | tr -d '\n')}}"
+VPS_IP="${VPS_IP:-${EXISTING_VPS_IP:-$(detect_vps_ip)}}"
 
 cat > deploy/.env <<EOF
 POSTGRES_DB=fxtao_db
@@ -50,6 +61,7 @@ DATABASE_URL=postgresql://admin:${POSTGRES_PASSWORD}@db:5432/fxtao_db
 FRONTEND_URL=https://${APP_DOMAIN}
 VITE_API_URL=https://${APP_DOMAIN}/api/v1
 VITE_ENABLE_MICROSOFT_LOGIN=false
+VITE_VPS_IP=${VPS_IP}
 JWT_SECRET=${JWT_SECRET}
 CORS_ALLOWED_ORIGINS=https://${APP_DOMAIN}
 REQUEST_BODY_LIMIT=10mb

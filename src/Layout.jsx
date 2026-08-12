@@ -35,6 +35,7 @@ export default function Layout({ children, currentPageName }) {
   const queryClient = useQueryClient();
   const isFx4Admin = user?.role === 'admin';
   const isCentralFx4Mode = isFx4Admin && !assistedTenant;
+  const vpsIp = (import.meta.env.VITE_VPS_IP || '').trim();
 
   // Notifications Logic
   const { data: notifications } = useQuery({
@@ -182,6 +183,11 @@ export default function Layout({ children, currentPageName }) {
             <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>
+          {vpsIp && (
+            <div className="mt-4 border-t border-slate-800 pt-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              VPS IP: <span className="font-mono text-slate-400">{vpsIp}</span>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -224,6 +230,11 @@ export default function Layout({ children, currentPageName }) {
             </Link>
           ))}
         </nav>
+        {vpsIp && (
+          <div className="absolute bottom-4 left-4 right-4 border-t border-slate-800 pt-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            VPS IP: <span className="font-mono text-slate-400">{vpsIp}</span>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
