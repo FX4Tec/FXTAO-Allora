@@ -133,6 +133,18 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
     },
   });
 
+  const updateProgressPublicationMutation = useMutation({
+    mutationFn: (enabled) => api.put(`/taos/${taoId}`, { is_public_progress_enabled: enabled }),
+    onSuccess: (response) => {
+      updateTao({ ...taoData, is_public_progress_enabled: Boolean(response.data?.is_public_progress_enabled) });
+      toast.success("Publicação do gráfico atualizada");
+    },
+    onError: (error, enabled) => {
+      updateTao({ ...taoData, is_public_progress_enabled: !enabled });
+      toast.error(error?.response?.data?.details || "Erro ao atualizar publicação do gráfico.");
+    },
+  });
+
   const startProgressEdit = (item) => {
     setEditingProgressId(item.id);
     setEditingProgressItem({
@@ -225,8 +237,12 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
               <input
                 type="checkbox"
                 checked={Boolean(taoData.is_public_progress_enabled)}
-                onChange={(e) => updateTao({ ...taoData, is_public_progress_enabled: e.target.checked })}
-                disabled={!canEdit}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  updateTao({ ...taoData, is_public_progress_enabled: enabled });
+                  updateProgressPublicationMutation.mutate(enabled);
+                }}
+                disabled={!canEdit || updateProgressPublicationMutation.isPending}
               />
               Publicar gráfico desta obra
             </label>
