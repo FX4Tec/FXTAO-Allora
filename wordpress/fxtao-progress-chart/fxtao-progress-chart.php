@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -59,14 +59,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.1.0'
+            '1.1.1'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.1.0',
+            '1.1.1',
             true
         );
     }
@@ -200,10 +200,23 @@ final class FXTAO_Progress_Chart_Plugin
 
     public static function restProgress(WP_REST_Request $request): WP_REST_Response
     {
+        try {
+            return self::doRestProgress($request);
+        } catch (Throwable $error) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Falha interna no plugin FXTAO Progress Chart.',
+                'details' => $error->getMessage(),
+            ], 500);
+        }
+    }
+
+    private static function doRestProgress(WP_REST_Request $request): WP_REST_Response
+    {
         $settings = self::settings();
         $tenantSlug = sanitize_key($request->get_param('tenant') ?: $settings['tenant_slug']);
         $workRef = sanitize_text_field($request->get_param('obra') ?: $settings['work_ref']);
-        $refresh = (bool)$request->get_param('refresh');
+        $refresh = self::booleanAttribute($request->get_param('refresh'), false);
 
         if (!$tenantSlug || !$workRef || empty($settings['token'])) {
             return new WP_REST_Response([
@@ -212,7 +225,7 @@ final class FXTAO_Progress_Chart_Plugin
             ], 400);
         }
 
-        $cacheKey = 'fxtao_progress_chart_' . md5($settings['api_base_url'] . '|' . $tenantSlug . '|' . $workRef);
+        $cacheKey = 'fxtao_progress_chart_' . md5($settings['api_base_url'] . '|' . $tenantSlug . '|' . $workRef . '|' . $request->get_param('tipo'));
         if (!$refresh) {
             $cached = get_transient($cacheKey);
             if ($cached) {
@@ -226,6 +239,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.1.1',
             ],
         ]);
 
@@ -237,11 +251,12 @@ final class FXTAO_Progress_Chart_Plugin
         }
 
         $status = wp_remote_retrieve_response_code($response);
-        $body = json_decode(wp_remote_retrieve_body($response), true);
+        $rawBody = wp_remote_retrieve_body($response);
+        $body = json_decode($rawBody, true);
         if ($status < 200 || $status >= 300 || !is_array($body)) {
             return new WP_REST_Response([
                 'success' => false,
-                'message' => 'Falha ao consultar FXTAO SaaS.',
+                'message' => is_array($body) && !empty($body['message']) ? $body['message'] : 'Falha ao consultar FXTAO SaaS.',
                 'status' => $status,
             ], 502);
         }

@@ -113,7 +113,7 @@
     element.dataset.ready = '1';
 
     const config = JSON.parse(element.dataset.config || '{}');
-    loadChart(element, config, false);
+    loadChart(element, config, true);
 
     element.addEventListener('click', (event) => {
       if (event.target.matches('.fxtao-progress-refresh')) {
@@ -123,7 +123,7 @@
 
     const minutes = Number(config.refreshMinutes || 0);
     if (minutes > 0) {
-      window.setInterval(() => loadChart(element, config, false), minutes * 60 * 1000);
+      window.setInterval(() => loadChart(element, config, true), minutes * 60 * 1000);
     }
   };
 
