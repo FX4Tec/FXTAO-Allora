@@ -124,6 +124,25 @@ export default function TaoList() {
     step5: "Cadastrado",
   };
 
+  const getStatusBadge = (tao) => {
+    if (tao?.status === '5' || tao?.status === 'step5') {
+      if (tao.approval_flow_enabled && tao.approval_status === 'pending') {
+        return { label: 'Aguardando aprovação', className: 'bg-yellow-100 text-yellow-700' };
+      }
+      if (tao.approval_flow_enabled && tao.approval_status === 'rejected') {
+        return { label: 'Reprovado', className: 'bg-red-100 text-red-700' };
+      }
+      if (tao.approval_flow_enabled && tao.approval_status === 'approved') {
+        return { label: 'Aprovado', className: 'bg-green-100 text-green-700' };
+      }
+    }
+
+    return {
+      label: statusLabels[tao?.status] || tao?.status || 'Rascunho',
+      className: statusColors[tao?.status] || "bg-slate-100",
+    };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -178,49 +197,52 @@ export default function TaoList() {
                 </TableCell>
               </TableRow>
             ) : (
-              taos?.map((tao) => (
-                <TableRow key={tao.id} className="hover:bg-slate-50 cursor-pointer group">
-                  <TableCell className="font-medium text-slate-900">
-                    <Link to={`${createPageUrl('TaoForm')}?id=${tao.id}`} className="hover:underline">
-                      {tao.project_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{tao.erp_number || '-'}</TableCell>
-                  <TableCell>{tao.hiring_regime || '-'}</TableCell>
-                  <TableCell className="text-slate-500">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3 h-3" />
-                      {tao.created_date ? format(new Date(tao.created_date), 'dd/MM/yyyy') : '-'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusColors[tao.status] || "bg-slate-100"}>
-                      {statusLabels[tao.status] || tao.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Editar">
-                        <Link to={`${createPageUrl('TaoForm')}?id=${tao.id}`}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                      </Button>
-
-                      {user?.role === 'admin' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Excluir"
-                          onClick={() => handleDelete(tao.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
+              taos?.map((tao) => {
+                const statusBadge = getStatusBadge(tao);
+                return (
+                  <TableRow key={tao.id} className="hover:bg-slate-50 cursor-pointer group">
+                    <TableCell className="font-medium text-slate-900">
+                      <Link to={`${createPageUrl('TaoForm')}?id=${tao.id}`} className="hover:underline">
+                        {tao.project_name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{tao.erp_number || '-'}</TableCell>
+                    <TableCell>{tao.hiring_regime || '-'}</TableCell>
+                    <TableCell className="text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3" />
+                        {tao.created_date ? format(new Date(tao.created_date), 'dd/MM/yyyy') : '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusBadge.className}>
+                        {statusBadge.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Editar">
+                          <Link to={`${createPageUrl('TaoForm')}?id=${tao.id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+
+                        {user?.role === 'admin' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Excluir"
+                            onClick={() => handleDelete(tao.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

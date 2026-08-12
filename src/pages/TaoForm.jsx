@@ -99,6 +99,42 @@ const hasApprovalFlowConfigured = (tao = {}) => {
   return Array.isArray(tao.approvers) && tao.approvers.some((approver) => ['tao', 'both'].includes(approver.scope));
 };
 
+const OPERATIONAL_STATUS_BADGES = {
+  start: { label: 'Rascunho', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+  '1': { label: 'Contrato', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  '2': { label: 'Financeiro', className: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  '3': { label: 'Aditivos', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+  '4': { label: 'Compliance', className: 'bg-orange-100 text-orange-700 border-orange-200' },
+  '5': { label: 'Cadastrado', className: 'bg-green-100 text-green-700 border-green-200' },
+};
+
+const LIFECYCLE_STATUS_BADGES = {
+  EM_VALIDACAO: { label: 'Em Validação', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  APROVADA: { label: 'Aprovada', className: 'bg-green-100 text-green-700 border-green-200' },
+  REPROVADA: { label: 'Reprovada', className: 'bg-red-100 text-red-700 border-red-200' },
+  CADASTRADA_NO_SIENGE: { label: 'Cadastrada no Sienge', className: 'bg-green-100 text-green-700 border-green-200' },
+  CANCELADA: { label: 'Cancelada', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+};
+
+const APPROVAL_STATUS_BADGES = {
+  pending: { label: 'Aprovação Pendente', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  approved: { label: 'Aprovada', className: 'bg-green-100 text-green-700 border-green-200' },
+  rejected: { label: 'Reprovada', className: 'bg-red-100 text-red-700 border-red-200' },
+  draft: { label: 'Aguardando Envio', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+};
+
+const getTaoHeaderStatusBadge = (tao = {}, requiresApprovalFlow = false) => {
+  if (requiresApprovalFlow && APPROVAL_STATUS_BADGES[tao.approval_status]) {
+    return APPROVAL_STATUS_BADGES[tao.approval_status];
+  }
+
+  if (tao.tao_lifecycle_status && LIFECYCLE_STATUS_BADGES[tao.tao_lifecycle_status]) {
+    return LIFECYCLE_STATUS_BADGES[tao.tao_lifecycle_status];
+  }
+
+  return OPERATIONAL_STATUS_BADGES[normalizeTaoStatus(tao.status)] || null;
+};
+
 export default function TaoForm() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -314,6 +350,7 @@ export default function TaoForm() {
     ...formData,
     approvers: taoApprovers,
   });
+  const headerStatusBadge = getTaoHeaderStatusBadge(formData, requiresApprovalFlow);
 
   return (
     <div className="max-w-7xl mx-auto pb-20">
@@ -326,13 +363,9 @@ export default function TaoForm() {
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
               {id ? `Editando: ${formData.project_name || 'Sem nome'}` : 'Novo Termo de Abertura'}
               {!canEdit && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full border border-red-200">Somente Leitura</span>}
-              {formData.approval_status && (
-                <span className={`text-xs px-2 py-1 rounded-full border uppercase font-bold
-                      ${formData.approval_status === 'approved' ? 'bg-green-100 text-green-600 border-green-200' :
-                    formData.approval_status === 'rejected' ? 'bg-red-100 text-red-600 border-red-200' :
-                      formData.approval_status === 'pending' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                        'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                  {formData.approval_status === 'pending' ? 'Aprovação Pendente' : formData.approval_status}
+              {headerStatusBadge && (
+                <span className={`text-xs px-2 py-1 rounded-full border uppercase font-bold ${headerStatusBadge.className}`}>
+                  {headerStatusBadge.label}
                 </span>
               )}
             </h1>
