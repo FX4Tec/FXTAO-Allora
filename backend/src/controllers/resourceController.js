@@ -106,7 +106,33 @@ exports.delete = async (req, res) => {
     const model = getModel(req.params.resource);
     if (!model) return res.status(404).json({ error: 'Resource not found' });
     try {
+        const existing = req.params.resource === 'tao-approvers'
+            ? await model.findUnique({ where: { id: req.params.id } })
+            : null;
+
         await model.delete({ where: { id: req.params.id } });
+
+        if (existing?.tao_id) {
+            const remainingApprovalApprovers = await model.count({
+                where: {
+                    tao_id: existing.tao_id,
+                    scope: { in: ['tao', 'both'] },
+                },
+            });
+
+            if (remainingApprovalApprovers === 0) {
+                await prisma.tao.update({
+                    where: { id: existing.tao_id },
+                    data: {
+                        approval_flow_enabled: false,
+                        approval_status: 'draft',
+                        current_approval_level: 0,
+                        tao_lifecycle_status: null,
+                    },
+                });
+            }
+        }
+
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ error: error.message });

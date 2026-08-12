@@ -194,6 +194,7 @@ model Tao {
   segment                      String?         // 'Residencial', 'Comercial', etc.
   project_type                 String?         // 'Construção Nova', 'Reforma', etc.
   status                       TaoStatus       @default(start)
+  approval_flow_enabled        Boolean         @default(false)
   approval_status              ApprovalStatus  @default(draft)
   current_approval_level       Int             @default(0)
   calculation_mode             CalculationMode @default(manual)
@@ -497,6 +498,7 @@ model Tao {
 
   @@index([is_public_map_enabled, updated_at])
   @@index([is_public_progress_enabled, updated_at])
+  @@index([approval_flow_enabled])
   @@index([public_slug])
   @@index([status, updated_at])
   @@map("taos")

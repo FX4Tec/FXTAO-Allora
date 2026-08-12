@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, UserCheck, ShieldAlert } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, ShieldAlert } from 'lucide-react';
 import { toast } from "sonner";
 
-export default function TaoApprovalSetup({ taoId, canEdit }) {
+export default function TaoApprovalSetup({ taoData = {}, updateTao, canEdit }) {
     const queryClient = useQueryClient();
+    const taoId = taoData.id;
     const [newApprover, setNewApprover] = useState({ user_email: '', level: 1, scope: 'both' });
 
     const { data: approvers } = useQuery({
@@ -28,29 +30,91 @@ export default function TaoApprovalSetup({ taoId, canEdit }) {
         mutationFn: (data) => api.post('/resources/tao-approvers', { ...data, tao_id: taoId }),
         onSuccess: () => {
             queryClient.invalidateQueries(['taoApprovers', taoId]);
+            queryClient.invalidateQueries(['tao', taoId]);
             setNewApprover({ user_email: '', level: 1, scope: 'both' });
             toast.success("Aprovador adicionado");
         }
     });
 
+    const updateApprovalFlowMutation = useMutation({
+        mutationFn: (enabled) => api.put(`/taos/${taoId}`, {
+            approval_flow_enabled: enabled,
+            ...(enabled ? {} : { approval_status: 'draft', current_approval_level: 0 }),
+        }),
+        onSuccess: (response) => {
+            updateTao?.({
+                ...taoData,
+                approval_flow_enabled: Boolean(response.data?.approval_flow_enabled),
+                approval_status: response.data?.approval_status || taoData.approval_status || 'draft',
+                current_approval_level: response.data?.current_approval_level ?? taoData.current_approval_level ?? 0,
+                tao_lifecycle_status: response.data?.tao_lifecycle_status ?? taoData.tao_lifecycle_status ?? null,
+            });
+            queryClient.invalidateQueries(['tao', taoId]);
+            toast.success(response.data?.approval_flow_enabled ? "Hierarquia de aprovação ativada." : "Hierarquia de aprovação desativada.");
+        },
+        onError: (error) => {
+            toast.error(error?.response?.data?.details || error?.response?.data?.error || "Erro ao atualizar hierarquia de aprovação.");
+        },
+    });
+
     const deleteMutation = useMutation({
         mutationFn: (id) => api.delete(`/resources/tao-approvers/${id}`),
-        onSuccess: () => {
+        onSuccess: (_result, deletedId) => {
+            const remainingRelevant = sortedApprovers
+                .filter((approver) => approver.id !== deletedId)
+                .some((approver) => ['tao', 'both'].includes(approver.scope));
+            if (!remainingRelevant && taoData.approval_flow_enabled) {
+                updateTao?.({
+                    ...taoData,
+                    approval_flow_enabled: false,
+                    approval_status: 'draft',
+                    current_approval_level: 0,
+                });
+            }
             queryClient.invalidateQueries(['taoApprovers', taoId]);
+            queryClient.invalidateQueries(['tao', taoId]);
             toast.success("Aprovador removido");
         }
     });
 
     const sortedApprovers = approvers || [];
+    const hasApprovalApprover = sortedApprovers.some((approver) => ['tao', 'both'].includes(approver.scope));
+    const approvalFlowEnabled = Boolean(taoData.approval_flow_enabled) && hasApprovalApprover;
 
     if (!taoId) return null;
 
     return (
         <Card className="border-slate-200 shadow-sm mt-6">
             <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-indigo-600" />
-                    <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Hierarquia de Aprovação</CardTitle>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-indigo-600" />
+                        <div>
+                            <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Hierarquia de Aprovação</CardTitle>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Ative somente quando a obra realmente exigir aprovação formal.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div className="text-right">
+                            <Label className="text-sm font-semibold text-slate-900">Fluxo ativo</Label>
+                            <p className="text-xs text-slate-500">
+                                {hasApprovalApprover ? 'Disponível para envio à aprovação' : 'Cadastre um aprovador primeiro'}
+                            </p>
+                        </div>
+                        <Switch
+                            checked={approvalFlowEnabled}
+                            disabled={!canEdit || !hasApprovalApprover || updateApprovalFlowMutation.isPending}
+                            onCheckedChange={(checked) => {
+                                if (checked && !hasApprovalApprover) {
+                                    toast.error('Cadastre pelo menos um aprovador de TAO antes de ativar a hierarquia.');
+                                    return;
+                                }
+                                updateApprovalFlowMutation.mutate(checked);
+                            }}
+                        />
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
@@ -118,7 +182,7 @@ export default function TaoApprovalSetup({ taoId, canEdit }) {
                         {sortedApprovers.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={4} className="text-center text-slate-500 py-4">
-                                    Nenhum aprovador configurado.
+                                    Nenhum aprovador configurado. A hierarquia só poderá ser ativada após cadastrar um aprovador.
                                 </TableCell>
                             </TableRow>
                         ) : (

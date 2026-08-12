@@ -71,6 +71,7 @@ const normalizeTaoRecord = (tao) => {
   const normalized = {
     ...tao,
     status: normalizeTaoStatus(tao?.status),
+    approval_flow_enabled: Boolean(tao?.approval_flow_enabled),
     cost_centers: Array.isArray(tao?.cost_centers) ? tao.cost_centers : [],
     payment_methods: Array.isArray(tao?.payment_methods) ? tao.payment_methods : [],
     financial_composition_items: Array.isArray(tao?.financial_composition_items) && tao.financial_composition_items.length
@@ -94,14 +95,8 @@ const normalizeTaoRecord = (tao) => {
 };
 
 const hasApprovalFlowConfigured = (tao = {}) => {
-  if (Array.isArray(tao.approvers) && tao.approvers.length > 0) return true;
-
-  return Boolean(
-    tao.engineering_approver_user_id
-    || tao.financial_approver_user_id
-    || tao.fiscal_approver_user_id
-    || tao.board_approver_user_id
-  );
+  if (!tao.approval_flow_enabled) return false;
+  return Array.isArray(tao.approvers) && tao.approvers.some((approver) => ['tao', 'both'].includes(approver.scope));
 };
 
 export default function TaoForm() {
@@ -130,7 +125,9 @@ export default function TaoForm() {
   useEffect(() => {
     if (!user || !existingTao) return;
     const isAdmin = user.role === 'admin' || user.role === 'director';
-    const isLocked = (existingTao.approval_status === 'approved' || existingTao.approval_status === 'pending');
+    const isApprovalLocked = Boolean(existingTao.approval_flow_enabled)
+      && (existingTao.approval_status === 'approved' || existingTao.approval_status === 'pending');
+    const isLocked = isApprovalLocked;
     setCanEdit(isAdmin || !isLocked);
   }, [user, existingTao]);
 
@@ -162,6 +159,7 @@ export default function TaoForm() {
     } else if (!id) {
       setFormData({
         status: 'start',
+        approval_flow_enabled: false,
         cost_centers: [],
         authorized_bank_account_ids: [],
         payment_methods: [],
@@ -380,7 +378,7 @@ export default function TaoForm() {
             className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
             onClick={async () => {
               try {
-                await api.put(`/taos/${id}`, { approval_status: 'pending', current_approval_level: 0 });
+                await api.put(`/taos/${id}`, { approval_flow_enabled: true, approval_status: 'pending', current_approval_level: 0 });
                 toast.success("Enviado para aprovação!");
                 queryClient.invalidateQueries(['tao', id]);
 

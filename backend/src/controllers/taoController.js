@@ -155,10 +155,11 @@ const TAO_BOOLEAN_FIELDS = [
     'cnd_inss_status',
     'is_public_map_enabled',
     'is_public_progress_enabled',
+    'approval_flow_enabled',
 ];
 
 const TAO_ALLOWED_FIELDS = [
-    'project_name', 'segment', 'project_type', 'status', 'approval_status',
+    'project_name', 'segment', 'project_type', 'status', 'approval_flow_enabled', 'approval_status',
     'current_approval_level', 'calculation_mode', 'registration_type', 'tao_lifecycle_status',
     'erp_number', 'opening_date', 'area_m2',
     'latitude', 'longitude', 'construction_situation', 'is_registration_consistent',
@@ -1249,6 +1250,41 @@ const buildAuditSnapshot = (tao = {}) => ({
         : [],
 });
 
+const hasTaoApprovalApprover = (approvers = []) =>
+    Array.isArray(approvers) && approvers.some((entry) => ['tao', 'both'].includes(entry.scope));
+
+const ensureApprovalFlowConsistency = ({ body = {}, data = {}, existing = {}, approvers = [] }) => {
+    const hasApprover = hasTaoApprovalApprover(approvers);
+    const effectiveApprovalFlowEnabled = data.approval_flow_enabled !== undefined
+        ? Boolean(data.approval_flow_enabled)
+        : Boolean(existing.approval_flow_enabled);
+    const requestedApprovalStatus = data.approval_status ?? existing.approval_status;
+
+    if (data.approval_flow_enabled === true && !hasApprover) {
+        const error = new Error('A hierarquia de aprovação só pode ser ativada após cadastrar pelo menos um aprovador de TAO.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (requestedApprovalStatus === 'pending' && (!effectiveApprovalFlowEnabled || !hasApprover)) {
+        const error = new Error('Não é possível deixar a TAO pendente sem hierarquia ativa e aprovador configurado.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (data.approval_flow_enabled === false || (!hasApprover && existing.approval_status === 'pending')) {
+        data.approval_status = 'draft';
+        data.current_approval_level = 0;
+        if (data.tao_lifecycle_status === 'EM_VALIDACAO' || existing.tao_lifecycle_status === 'EM_VALIDACAO') {
+            data.tao_lifecycle_status = null;
+        }
+    }
+
+    if (body.approval_status === 'pending') {
+        data.approval_flow_enabled = true;
+    }
+};
+
 // Create new TAO
 exports.create = async (req, res) => {
     try {
@@ -1267,6 +1303,7 @@ exports.create = async (req, res) => {
             );
 
             Object.assign(data, relationData, buildLifecycleMetadata(data));
+            ensureApprovalFlowConsistency({ body, data, existing: {}, approvers: [] });
             validateTaoSiengePayload(buildValidationSnapshot({}, data, relationData, costCenters));
 
             const created = await transaction.tao.create({ data });
@@ -1398,6 +1435,7 @@ exports.update = async (req, res) => {
                 where: { id },
                 include: {
                     cost_centers: true,
+                    approvers: true,
                 },
             });
 
@@ -1440,6 +1478,13 @@ exports.update = async (req, res) => {
                 ...buildLifecycleMetadata(data, existing),
                 updated_by_id: writerUserId,
             };
+
+            ensureApprovalFlowConsistency({
+                body,
+                data: updateData,
+                existing,
+                approvers: existing.approvers,
+            });
 
             if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
                 updateData.status = getHigherTaoStatus(existing.status, updateData.status);
@@ -1529,6 +1574,11 @@ exports.decideApproval = async (req, res) => {
             }
             if (current.approval_status !== 'pending') {
                 const error = new Error('Esta TAO não está aguardando aprovação.');
+                error.statusCode = 409;
+                throw error;
+            }
+            if (!current.approval_flow_enabled || !hasTaoApprovalApprover(current.approvers)) {
+                const error = new Error('Esta TAO não possui hierarquia de aprovação ativa.');
                 error.statusCode = 409;
                 throw error;
             }

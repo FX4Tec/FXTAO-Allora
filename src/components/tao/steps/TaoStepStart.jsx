@@ -176,7 +176,7 @@ export default function TaoStepStart({ taoData, updateTao, bankAccounts, canEdit
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      <TaoApprovalSetup taoId={taoData.id} canEdit={canEdit} />
+      <TaoApprovalSetup taoData={taoData} updateTao={updateTao} canEdit={canEdit} />
 
       {/* Header Info */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
