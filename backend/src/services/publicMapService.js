@@ -323,7 +323,6 @@ const fetchPublicMapRecords = async (prismaClient = prisma) =>
             is_public_map_enabled: true,
             OR: [
                 { approval_flow_enabled: false },
-                { approval_flow_enabled: null },
                 { approval_status: 'approved' },
             ],
         },

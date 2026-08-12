@@ -26,7 +26,6 @@ Preencha:
 - `URL base da API`: normalmente `https://fxtao.fx4.com.br/api/public`.
 - `ID/slug do cliente`: exemplo `cinci`, `allora` ou `cymz`.
 - `Obra padrão`: opcional; aceita nome, ERP ou identificador da obra.
-- `Link do FXTAO`: exemplo `https://fxtao.fx4.com.br`.
 - `Bearer token`: token da integração `Mapa público de obras`.
 - `Mostrar somente obras ativas`: recomendado manter marcado.
 - `Exibir seletor de obras`: mostra uma lista para alternar entre obras no componente.
@@ -48,7 +47,7 @@ Mapa de uma obra específica:
 Mapa apontando explicitamente para um cliente:
 
 ```text
-[fxtao_public_map cliente="cinci" fxtao_url="https://fxtao.fx4.com.br" seletor="true"]
+[fxtao_public_map cliente="cinci" seletor="true"]
 ```
 
 Altura customizada:

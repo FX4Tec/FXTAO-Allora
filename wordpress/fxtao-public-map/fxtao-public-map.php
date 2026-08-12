@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Public Map
  * Description: Exibe no WordPress um componente de mapa de obras ativas do FXTAO SaaS, com token protegido no servidor.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: FX4 Tecnologia
  */
 
@@ -60,7 +60,6 @@ final class FXTAO_Public_Map_Plugin
             'api_base_url' => esc_url_raw($settings['api_base_url'] ?? 'https://fxtao.fx4.com.br/api/public'),
             'tenant_slug' => sanitize_title($settings['tenant_slug'] ?? ''),
             'bearer_token' => sanitize_text_field($settings['bearer_token'] ?? ''),
-            'portal_base_url' => esc_url_raw($settings['portal_base_url'] ?? 'https://fxtao.fx4.com.br'),
             'default_work_filter' => sanitize_text_field($settings['default_work_filter'] ?? ''),
             'active_only' => !empty($settings['active_only']) ? '1' : '0',
             'show_selector' => empty($settings['show_selector']) ? '0' : '1',
@@ -101,13 +100,6 @@ final class FXTAO_Public_Map_Plugin
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="fxtao_portal_base_url">Link do FXTAO</label></th>
-                        <td>
-                            <input id="fxtao_portal_base_url" class="regular-text" name="<?php echo esc_attr(self::OPTION_KEY); ?>[portal_base_url]" value="<?php echo esc_attr($settings['portal_base_url']); ?>" placeholder="https://fxtao.fx4.com.br" />
-                            <p class="description">Usado no botão “Abrir no FXTAO” do componente.</p>
-                        </td>
-                    </tr>
-                    <tr>
                         <th scope="row"><label for="fxtao_bearer_token">Bearer token</label></th>
                         <td><input id="fxtao_bearer_token" class="regular-text" type="password" autocomplete="off" name="<?php echo esc_attr(self::OPTION_KEY); ?>[bearer_token]" value="<?php echo esc_attr($settings['bearer_token']); ?>" /></td>
                     </tr>
@@ -139,7 +131,7 @@ final class FXTAO_Public_Map_Plugin
             <h2>Shortcodes</h2>
             <p>Mapa padrão do cliente configurado: <code>[fxtao_public_map]</code></p>
             <p>Mapa de uma obra específica: <code>[fxtao_public_map obra="CASA ATLÂNTICA"]</code></p>
-            <p>Mapa com cliente/URL explícitos: <code>[fxtao_public_map cliente="cinci" fxtao_url="https://fxtao.fx4.com.br" seletor="true"]</code></p>
+            <p>Mapa com cliente explícito: <code>[fxtao_public_map cliente="cinci" seletor="true"]</code></p>
         </div>
         <?php
     }
@@ -151,15 +143,14 @@ final class FXTAO_Public_Map_Plugin
             'cliente' => '',
             'tenant' => '',
             'obra' => '',
-            'fxtao_url' => '',
             'somente_ativas' => '',
             'seletor' => '',
         ], $atts, 'fxtao_public_map');
 
         wp_enqueue_style('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', [], '1.9.4');
         wp_enqueue_script('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', [], '1.9.4', true);
-        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.0.0');
-        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.0.0', true);
+        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.2.0');
+        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.2.0', true);
 
         $settings = self::settings();
         wp_localize_script('fxtao-public-map', 'FXTAOPublicMap', [
@@ -172,18 +163,15 @@ final class FXTAO_Public_Map_Plugin
         $height = preg_match('/^\d+(px|vh|rem|em|%)$/', (string) $atts['height']) ? $atts['height'] : '520px';
         $tenant = sanitize_title($atts['cliente'] ?: $atts['tenant'] ?: $settings['tenant_slug']);
         $workFilter = sanitize_text_field($atts['obra'] ?: $settings['default_work_filter']);
-        $portalUrl = esc_url_raw($atts['fxtao_url'] ?: $settings['portal_base_url']);
         $activeOnly = self::normalizeBooleanAttribute($atts['somente_ativas'], $settings['active_only'] === '1');
         $showSelector = self::normalizeBooleanAttribute($atts['seletor'], $settings['show_selector'] === '1');
 
         return sprintf(
-            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-portal-url="%s" data-active-only="%s" data-show-selector="%s"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select><a class="fxtao-public-map__portal" href="%s" target="_blank" rel="noopener">Abrir no FXTAO</a></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
+            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-active-only="%s" data-show-selector="%s"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
             esc_attr($tenant),
             esc_attr($workFilter),
-            esc_url($portalUrl),
             $activeOnly ? '1' : '0',
             $showSelector ? '1' : '0',
-            esc_url($portalUrl),
             esc_attr($height)
         );
     }
@@ -194,7 +182,6 @@ final class FXTAO_Public_Map_Plugin
         $tenantSlug = sanitize_title($request->get_param('tenant') ?: $settings['tenant_slug']);
         $workFilter = sanitize_text_field($request->get_param('obra') ?: $settings['default_work_filter']);
         $activeOnly = self::normalizeBooleanAttribute($request->get_param('active_only'), $settings['active_only'] === '1');
-        $portalUrl = esc_url_raw($request->get_param('portal_url') ?: $settings['portal_base_url']);
 
         if (empty($settings['api_base_url']) || empty($tenantSlug) || empty($settings['bearer_token'])) {
             return new WP_REST_Response([
@@ -206,7 +193,7 @@ final class FXTAO_Public_Map_Plugin
         $cacheKey = 'fxtao_public_map_' . md5($settings['api_base_url'] . '|' . $tenantSlug);
         $cachedPayload = get_transient($cacheKey);
         if (is_array($cachedPayload)) {
-            return new WP_REST_Response(self::filterPayload($cachedPayload, $workFilter, $activeOnly, $portalUrl), 200);
+            return new WP_REST_Response(self::filterPayload($cachedPayload, $workFilter, $activeOnly), 200);
         }
 
         $url = trailingslashit($settings['api_base_url']) . rawurlencode($tenantSlug) . '/obras/mapa';
@@ -238,7 +225,7 @@ final class FXTAO_Public_Map_Plugin
             set_transient($cacheKey, $body, (int) $settings['cache_seconds']);
         }
 
-        return new WP_REST_Response(self::filterPayload($body, $workFilter, $activeOnly, $portalUrl), $statusCode);
+        return new WP_REST_Response(self::filterPayload($body, $workFilter, $activeOnly), $statusCode);
     }
 
     private static function settings(): array
@@ -252,7 +239,6 @@ final class FXTAO_Public_Map_Plugin
             'api_base_url' => 'https://fxtao.fx4.com.br/api/public',
             'tenant_slug' => '',
             'bearer_token' => '',
-            'portal_base_url' => 'https://fxtao.fx4.com.br',
             'default_work_filter' => '',
             'active_only' => '1',
             'show_selector' => '1',
@@ -292,7 +278,7 @@ final class FXTAO_Public_Map_Plugin
         return false;
     }
 
-    private static function filterPayload(array $payload, string $workFilter, bool $activeOnly, string $portalUrl): array
+    private static function filterPayload(array $payload, string $workFilter, bool $activeOnly): array
     {
         $works = is_array($payload['data'] ?? null) ? $payload['data'] : [];
         $works = array_values(array_filter($works, function ($work) use ($workFilter, $activeOnly) {
@@ -304,7 +290,6 @@ final class FXTAO_Public_Map_Plugin
         $payload['data'] = $works;
         $payload['meta'] = array_merge(is_array($payload['meta'] ?? null) ? $payload['meta'] : [], [
             'filtered_total' => count($works),
-            'portal_url' => $portalUrl,
             'work_filter' => $workFilter,
             'active_only' => $activeOnly,
         ]);

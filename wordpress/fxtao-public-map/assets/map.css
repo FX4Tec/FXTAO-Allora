@@ -9,7 +9,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 10px;
 }
 
@@ -21,24 +21,6 @@
     background: #ffffff;
     color: #172033;
     font: 600 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.fxtao-public-map__portal {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: #1d4ed8;
-    color: #ffffff;
-    font: 700 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    text-decoration: none;
-}
-
-.fxtao-public-map__portal:hover,
-.fxtao-public-map__portal:focus {
-    color: #ffffff;
-    background: #1e40af;
 }
 
 .fxtao-public-map {

@@ -173,7 +173,6 @@ export default function PluginDownloadsGuide() {
                   'Em URL base da API, informe https://fxtao.fx4.com.br/api/public.',
                   'Em ID/slug do cliente, informe o slug cadastrado no SaaS, por exemplo cliente.',
                   'Cole o Bearer token da integração Mapa público de obras do respectivo cliente.',
-                  'Informe o Link do FXTAO, por exemplo https://fxtao.fx4.com.br.',
                   'Opcionalmente informe uma Obra padrão para exibir apenas uma obra na página.',
                   'Mantenha Mostrar somente obras ativas habilitado, salvo necessidade operacional diferente.',
                 ]} />
@@ -183,7 +182,7 @@ export default function PluginDownloadsGuide() {
                 <div className="space-y-2 rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100">
                   <p>[fxtao_public_map]</p>
                   <p>[fxtao_public_map obra="NOME DA OBRA"]</p>
-                  <p>[fxtao_public_map cliente="cliente" fxtao_url="https://fxtao.fx4.com.br" seletor="true"]</p>
+                  <p>[fxtao_public_map cliente="cliente" seletor="true"]</p>
                   <p>[fxtao_public_map height="640px"]</p>
                 </div>
               </div>

@@ -41,11 +41,9 @@
         const endpoint = new URL(config.endpoint, window.location.origin);
         const tenant = shell.dataset.tenant || '';
         const work = shell.dataset.work || '';
-        const portalUrl = shell.dataset.portalUrl || '';
 
         if (tenant) endpoint.searchParams.set('tenant', tenant);
         if (work) endpoint.searchParams.set('obra', work);
-        if (portalUrl) endpoint.searchParams.set('portal_url', portalUrl);
         endpoint.searchParams.set('active_only', shell.dataset.activeOnly === '1' ? '1' : '0');
 
         return endpoint.toString();
@@ -117,7 +115,6 @@
     const initMap = async (shell) => {
         const container = shell.querySelector('.fxtao-public-map');
         const status = shell.querySelector('.fxtao-public-map__status');
-        const portalLink = shell.querySelector('.fxtao-public-map__portal');
         const map = L.map(container).setView([
             Number(config.defaultLatitude || -23.55052),
             Number(config.defaultLongitude || -46.63331),
@@ -129,13 +126,6 @@
         }).addTo(map);
 
         try {
-            if (shell.dataset.portalUrl) {
-                portalLink.href = shell.dataset.portalUrl;
-                portalLink.hidden = false;
-            } else {
-                portalLink.hidden = true;
-            }
-
             const response = await fetch(buildEndpoint(shell), {
                 headers: { Accept: 'application/json' },
             });
