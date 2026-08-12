@@ -4,6 +4,7 @@ const crypto = require('crypto');
 
 const ALL_SCOPES = ['works.read', 'financial.read', 'team.read', 'lookup.read'];
 const PUBLIC_MAP_SCOPES = ['public-map.read'];
+const PROGRESS_CHART_SCOPES = ['progress.read'];
 const IP_FILTER_KEY = 'integration_ip_filter_enabled';
 const CLIENT_KEY_PREFIX = 'integration_client_';
 
@@ -27,6 +28,11 @@ const INTEGRATION_CLIENTS = {
         key: 'public_map',
         label: 'Mapa publico de obras',
         scopes: PUBLIC_MAP_SCOPES,
+    },
+    progress_chart: {
+        key: 'progress_chart',
+        label: 'Grafico publico de evolucao da obra',
+        scopes: PROGRESS_CHART_SCOPES,
     },
 };
 
@@ -274,6 +280,7 @@ const resolveClientByToken = async (token) => {
 
 module.exports = {
     ALL_SCOPES,
+    PROGRESS_CHART_SCOPES,
     INTEGRATION_CLIENTS,
     getIntegrationSettings,
     normalizeIpList,

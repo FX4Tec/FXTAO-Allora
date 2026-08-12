@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileCode2, MapPinned, ShieldCheck } from 'lucide-react';
+import { BarChart3, Download, FileCode2, MapPinned, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -11,6 +11,7 @@ import {
 
 const SHAREPOINT_PACKAGE_URL = '/downloads/fxtao-work-page.sppkg';
 const WORDPRESS_PLUGIN_URL = '/downloads/fxtao-public-map.zip';
+const WORDPRESS_PROGRESS_PLUGIN_URL = '/downloads/fxtao-progress-chart.zip';
 
 const StepList = ({ steps }) => (
   <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-700">
@@ -33,7 +34,7 @@ export default function PluginDownloadsGuide() {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="grid gap-4 lg:grid-cols-2">
+      <CardContent className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-indigo-100 bg-white p-4">
           <div className="mb-3 flex items-start gap-3">
             <FileCode2 className="mt-1 h-5 w-5 text-indigo-700" />
@@ -60,6 +61,21 @@ export default function PluginDownloadsGuide() {
           <Button asChild variant="outline" className="w-full border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-100">
             <a href={WORDPRESS_PLUGIN_URL} download>
               <Download className="mr-2 h-4 w-4" /> Baixar plugin WordPress
+            </a>
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-indigo-100 bg-white p-4">
+          <div className="mb-3 flex items-start gap-3">
+            <BarChart3 className="mt-1 h-5 w-5 text-indigo-700" />
+            <div>
+              <p className="font-semibold text-slate-950">Plugin WordPress Evolução da Obra</p>
+              <p className="text-sm text-slate-600">Gráfico público de avanço por tópicos, cliente e obra.</p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="w-full border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-100">
+            <a href={WORDPRESS_PROGRESS_PLUGIN_URL} download>
+              <Download className="mr-2 h-4 w-4" /> Baixar plugin de evolução
             </a>
           </Button>
         </div>
@@ -136,6 +152,55 @@ export default function PluginDownloadsGuide() {
               </div>
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 Para uma obra aparecer, ela precisa ter latitude/longitude e estar habilitada para publicação no mapa público do FXTAO.
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="progress-chart">
+            <AccordionTrigger>Manual detalhado: gráfico de evolução da obra no WordPress</AccordionTrigger>
+            <AccordionContent className="space-y-4">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">1. Instalação do plugin</p>
+                <StepList steps={[
+                  'Baixe o arquivo fxtao-progress-chart.zip pelo botão acima.',
+                  'No WordPress, acesse Plugins > Adicionar novo > Enviar plugin.',
+                  'Envie o ZIP, clique em Instalar agora e depois em Ativar.',
+                  'Acesse Configurações > FXTAO Progress Chart.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">2. Preparação no FXTAO SaaS</p>
+                <StepList steps={[
+                  'Entre no cliente correto pelo acesso assistido ou pela URL direta do tenant.',
+                  'Em Configurações > Integrações do Ecossistema, habilite Gráfico público de evolução da obra.',
+                  'Gere e copie um Bearer token exclusivo para este cliente.',
+                  'Abra a TAO da obra, vá ao item 5 e marque Publicar gráfico desta obra.',
+                  'Cadastre os tópicos e percentuais no quadro Evolução da Obra para WordPress.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">3. Configuração de conexão</p>
+                <StepList steps={[
+                  'Em URL base da API, informe https://fxtao.fx4.com.br/api/public.',
+                  'Em Slug do cliente, informe o tenant SaaS, por exemplo cinci, allora, cymz ou seiji.',
+                  'Em Obra padrão, informe ID, ERP, slug público ou nome da obra.',
+                  'Cole o Bearer token da integração Gráfico público de evolução da obra.',
+                  'Escolha o tipo de gráfico: barra horizontal, barras verticais ou resumo circular.',
+                  'Defina o período de atualização em minutos e habilite Atualizar agora se desejar refresh manual.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">4. Shortcodes</p>
+                <div className="space-y-2 rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100">
+                  <p>[fxtao_progress_chart]</p>
+                  <p>[fxtao_progress_chart obra="APARTAMENTO LG"]</p>
+                  <p>[fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]</p>
+                  <p>[fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]</p>
+                  <p>[fxtao_progress_chart tipo="donut" titulo="Resumo da Obra"]</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                O token fica salvo no servidor WordPress e a API só retorna dados da obra quando o tenant e a obra publicados coincidem com o token do cliente.
               </div>
             </AccordionContent>
           </AccordionItem>

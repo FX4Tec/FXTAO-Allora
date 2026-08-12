@@ -11,6 +11,16 @@ const createPublicMapAuthMiddleware = ({
     getConfig = getPublicMapConfig,
     recordAudit = safeRecordPublicMapAudit,
     resolveClient = null,
+    expectedClientKey = 'public_map',
+    requiredScope = 'public-map.read',
+    fallbackEnvTokenEnabled = true,
+    fallbackLabel = 'FXTao Obras Map',
+    tokenRequiredError = 'PUBLIC_MAP_TOKEN_REQUIRED',
+    invalidTokenError = 'INVALID_PUBLIC_MAP_TOKEN',
+    authFailedError = 'PUBLIC_MAP_AUTH_FAILED',
+    tokenRequiredMessage = 'Envie um Bearer token valido para consumir o mapa publico.',
+    invalidTokenMessage = 'Token de acesso publico invalido, inativo ou sem escopo para o mapa.',
+    authFailedMessage = 'Falha ao validar o acesso ao mapa publico.',
 } = {}) => async (req, res, next) => {
     const config = getConfig();
     const origin = String(req.headers.origin || '').trim() || null;
@@ -36,7 +46,7 @@ const createPublicMapAuthMiddleware = ({
         const authHeader = req.headers.authorization || '';
         if (!authHeader.startsWith('Bearer ')) {
             await recordAudit({
-                errorCode: 'PUBLIC_MAP_TOKEN_REQUIRED',
+                errorCode: tokenRequiredError,
                 origin,
                 requestIp,
                 statusCode: 401,
@@ -44,15 +54,15 @@ const createPublicMapAuthMiddleware = ({
             });
 
             return res.status(401).json({
-                error: 'PUBLIC_MAP_TOKEN_REQUIRED',
-                message: 'Envie um Bearer token valido para consumir o mapa publico.',
+                error: tokenRequiredError,
+                message: tokenRequiredMessage,
             });
         }
 
         const token = authHeader.slice('Bearer '.length).trim();
         if (!token) {
             await recordAudit({
-                errorCode: 'PUBLIC_MAP_TOKEN_REQUIRED',
+                errorCode: tokenRequiredError,
                 origin,
                 requestIp,
                 statusCode: 401,
@@ -60,27 +70,38 @@ const createPublicMapAuthMiddleware = ({
             });
 
             return res.status(401).json({
-                error: 'PUBLIC_MAP_TOKEN_REQUIRED',
-                message: 'Envie um Bearer token valido para consumir o mapa publico.',
+                error: tokenRequiredError,
+                message: tokenRequiredMessage,
             });
         }
 
         let { client, ipFilterEnabled } = await resolveClientByToken(token);
 
-        if ((!client || client.key !== 'public_map') && config.envToken && timingSafeCompare(token, config.envToken)) {
+        if (
+            fallbackEnvTokenEnabled
+            && expectedClientKey === 'public_map'
+            && (!client || client.key !== expectedClientKey)
+            && config.envToken
+            && timingSafeCompare(token, config.envToken)
+        ) {
             client = {
-                key: 'public_map',
-                label: 'FXTao Obras Map',
-                scopes: ['public-map.read'],
+                key: expectedClientKey,
+                label: fallbackLabel,
+                scopes: [requiredScope],
                 allowedIps: [],
             };
             ipFilterEnabled = false;
         }
 
-        if (!client || !Array.isArray(client.scopes) || !client.scopes.includes('public-map.read')) {
+        if (
+            !client
+            || client.key !== expectedClientKey
+            || !Array.isArray(client.scopes)
+            || !client.scopes.includes(requiredScope)
+        ) {
             await recordAudit({
                 clientKey: client?.key || null,
-                errorCode: 'INVALID_PUBLIC_MAP_TOKEN',
+                errorCode: invalidTokenError,
                 origin,
                 requestIp,
                 statusCode: 403,
@@ -88,8 +109,8 @@ const createPublicMapAuthMiddleware = ({
             });
 
             return res.status(403).json({
-                error: 'INVALID_PUBLIC_MAP_TOKEN',
-                message: 'Token de acesso publico invalido, inativo ou sem escopo para o mapa.',
+                error: invalidTokenError,
+                message: invalidTokenMessage,
             });
         }
 
@@ -138,19 +159,19 @@ const createPublicMapAuthMiddleware = ({
     } catch (error) {
         console.error('Public map auth failed:', error);
 
-        await recordAudit({
-            clientKey: req.publicMapClient?.key || null,
-            errorCode: 'PUBLIC_MAP_AUTH_FAILED',
-            origin,
-            requestIp,
-            statusCode: 500,
-            success: false,
-        });
+            await recordAudit({
+                clientKey: req.publicMapClient?.key || null,
+                errorCode: authFailedError,
+                origin,
+                requestIp,
+                statusCode: 500,
+                success: false,
+            });
 
-        return res.status(500).json({
-            error: 'PUBLIC_MAP_AUTH_FAILED',
-            message: 'Falha ao validar o acesso ao mapa publico.',
-        });
+            return res.status(500).json({
+                error: authFailedError,
+                message: authFailedMessage,
+            });
     }
 };
 

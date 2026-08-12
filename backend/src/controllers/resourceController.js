@@ -10,6 +10,7 @@ const modelMap = {
     'tao-contacts': 'taoContact',
     'tao-team-members': 'taoTeamMember',
     'tao-attachments': 'taoAttachment',
+    'tao-progress-topics': 'taoProgressTopic',
     'tao-direct-billing-document-items': 'taoDirectBillingDocumentItem',
     'tao-initial-checklist-items': 'taoInitialChecklistItem',
     'bank-accounts': 'bankAccount',

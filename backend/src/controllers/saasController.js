@@ -16,6 +16,7 @@ const {
     microsoftConfigFromTenant,
     publicSsoConfig,
 } = require('../services/ssoConfigService');
+const { provisionTenantDatabase } = require('../services/tenantProvisioningService');
 
 
 const isFx4Admin = (user) => ['admin', 'director'].includes(user?.role);
@@ -210,6 +211,7 @@ exports.createTenant = async (req, res) => {
             plan_code,
             database_url,
             database_label,
+            provision_database = true,
             local_login_enabled = true,
             microsoft_login_enabled = false,
         } = req.body;
@@ -218,24 +220,41 @@ exports.createTenant = async (req, res) => {
             return res.status(400).json({ error: 'Slug e nome do cliente são obrigatórios.' });
         }
 
+        const normalizedSlug = String(slug).trim().toLowerCase();
+        const normalizedPrimaryDomain = normalizeHostname(primary_domain) || null;
+        const normalizedAppSubdomain = normalizeHostname(app_subdomain) || null;
+
+        let tenantDatabaseUrl = database_url;
+        let tenantDatabaseLabel = database_label;
+        let provisionedDatabase = null;
+
+        if (!tenantDatabaseUrl && provision_database !== false) {
+            provisionedDatabase = await provisionTenantDatabase({
+                slug: normalizedSlug,
+                databaseLabel: database_label,
+            });
+            tenantDatabaseUrl = provisionedDatabase.databaseUrl;
+            tenantDatabaseLabel = provisionedDatabase.databaseLabel;
+        }
+
         const tenant = await prisma.saasTenant.create({
             data: {
                 id: crypto.randomUUID(),
-                slug,
+                slug: normalizedSlug,
                 display_name,
                 legal_name,
                 document,
-                primary_domain,
-                app_subdomain,
+                primary_domain: normalizedPrimaryDomain,
+                app_subdomain: normalizedAppSubdomain,
                 plan_code,
-                database_url,
-                database_label,
+                database_url: tenantDatabaseUrl,
+                database_label: tenantDatabaseLabel,
                 local_login_enabled,
                 microsoft_login_enabled,
-                domains: primary_domain ? {
+                domains: normalizedPrimaryDomain ? {
                     create: {
                         id: crypto.randomUUID(),
-                        hostname: primary_domain,
+                        hostname: normalizedPrimaryDomain,
                         is_primary: true,
                         proxy_status: 'pending',
                         ssl_status: 'pending',
@@ -251,7 +270,12 @@ exports.createTenant = async (req, res) => {
             userEmail: user.email,
             action: 'saas.tenant.create',
             resource: 'saas_tenants',
-            afterData: { slug, display_name },
+            afterData: {
+                slug: normalizedSlug,
+                display_name,
+                database_label: tenantDatabaseLabel || null,
+                database_created: Boolean(provisionedDatabase?.created),
+            },
         });
 
         res.status(201).json(await tenantResponse(tenant));
@@ -283,6 +307,7 @@ exports.updateTenant = async (req, res) => {
             'primary_domain',
             'app_subdomain',
             'plan_code',
+            'database_url',
             'database_label',
             'commercial_status',
             'operational_status',
@@ -295,6 +320,16 @@ exports.updateTenant = async (req, res) => {
         allowedFields.forEach((field) => {
             if (req.body[field] !== undefined) data[field] = req.body[field];
         });
+
+        let provisionedDatabase = null;
+        if (!existing.database_url && !data.database_url && req.body.provision_database === true) {
+            provisionedDatabase = await provisionTenantDatabase({
+                slug: data.slug || existing.slug,
+                databaseLabel: data.database_label || existing.database_label,
+            });
+            data.database_url = provisionedDatabase.databaseUrl;
+            data.database_label = provisionedDatabase.databaseLabel;
+        }
 
         const tenant = await prisma.saasTenant.update({
             where: { id },
@@ -337,7 +372,12 @@ exports.updateTenant = async (req, res) => {
             action: 'saas.tenant.update',
             resource: 'saas_tenants',
             beforeData: { slug: existing.slug, display_name: existing.display_name },
-            afterData: { slug: tenant.slug, display_name: tenant.display_name },
+            afterData: {
+                slug: tenant.slug,
+                display_name: tenant.display_name,
+                database_label: tenant.database_label || null,
+                database_created: Boolean(provisionedDatabase?.created),
+            },
         });
 
         res.json(await tenantResponse(tenant));

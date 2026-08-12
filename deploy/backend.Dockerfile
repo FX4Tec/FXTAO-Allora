@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY backend/package*.json ./
-RUN apk add --no-cache openssl \
+RUN apk add --no-cache openssl postgresql-client \
     && npm ci
 
 COPY backend/ ./

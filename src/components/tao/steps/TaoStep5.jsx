@@ -7,13 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Search, Paperclip, ExternalLink, File, Image as ImageIcon, X } from 'lucide-react';
+import { BarChart3, Edit2, Plus, Trash2, Paperclip, ExternalLink, File, Image as ImageIcon, X } from 'lucide-react';
 import { toast } from "sonner";
 
 export default function TaoStep5({ taoData, updateTao, canEdit }) {
   const queryClient = useQueryClient();
   const taoId = taoData.id;
   const [uploading, setUploading] = useState(false);
+  const [newProgressItem, setNewProgressItem] = useState({ topic: '', percentage: '' });
+  const [editingProgressId, setEditingProgressId] = useState(null);
+  const [editingProgressItem, setEditingProgressItem] = useState({ topic: '', percentage: '', sort_order: 0, is_active: true });
 
   // --- Contacts State & Logic ---
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', phone: '' });
@@ -70,6 +73,77 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
       toast.success("Anexo removido");
     }
   });
+
+  // --- Public Progress Chart Logic ---
+  const { data: progressTopics = [] } = useQuery({
+    queryKey: ['taoProgressTopics', taoId],
+    queryFn: async () => {
+      const res = await api.get('/resources/tao-progress-topics', { params: { tao_id: taoId } });
+      return (res.data || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    },
+    enabled: !!taoId,
+  });
+
+  const normalizePercentage = (value) => {
+    const numericValue = Number(String(value ?? '').replace(',', '.'));
+    if (!Number.isFinite(numericValue)) return 0;
+    return Math.min(100, Math.max(0, numericValue));
+  };
+
+  const createProgressMutation = useMutation({
+    mutationFn: (data) => api.post('/resources/tao-progress-topics', {
+      tao_id: taoId,
+      topic: data.topic.trim(),
+      percentage: normalizePercentage(data.percentage),
+      sort_order: progressTopics.length,
+      is_active: true,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['taoProgressTopics', taoId]);
+      setNewProgressItem({ topic: '', percentage: '' });
+      toast.success("Item de evolução adicionado");
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.error || "Erro ao adicionar item de evolução.");
+    },
+  });
+
+  const updateProgressMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/resources/tao-progress-topics/${id}`, {
+      topic: data.topic.trim(),
+      percentage: normalizePercentage(data.percentage),
+      sort_order: Number(data.sort_order || 0),
+      is_active: data.is_active !== false,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['taoProgressTopics', taoId]);
+      setEditingProgressId(null);
+      toast.success("Item de evolução atualizado");
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.error || "Erro ao atualizar item de evolução.");
+    },
+  });
+
+  const deleteProgressMutation = useMutation({
+    mutationFn: (id) => api.delete(`/resources/tao-progress-topics/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['taoProgressTopics', taoId]);
+      toast.success("Item de evolução removido");
+    },
+  });
+
+  const startProgressEdit = (item) => {
+    setEditingProgressId(item.id);
+    setEditingProgressItem({
+      topic: item.topic || '',
+      percentage: item.percentage ?? '',
+      sort_order: item.sort_order || 0,
+      is_active: item.is_active !== false,
+    });
+  };
+
+  const canCreateProgress = canEdit && newProgressItem.topic.trim().length >= 2;
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -134,6 +208,136 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
           </Button>
         )}
       </div>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase text-indigo-700">
+                <BarChart3 className="h-4 w-4" />
+                Evolução da Obra para WordPress
+              </CardTitle>
+              <p className="mt-1 text-sm text-slate-500">
+                Cadastre tópicos e percentuais exibidos no plugin público, segregado por cliente e obra.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(taoData.is_public_progress_enabled)}
+                onChange={(e) => updateTao({ ...taoData, is_public_progress_enabled: e.target.checked })}
+                disabled={!canEdit}
+              />
+              Publicar gráfico desta obra
+            </label>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4">
+          {canEdit && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_auto]">
+              <Input
+                placeholder="Tópico: Fundação, Estrutura, Pintura..."
+                value={newProgressItem.topic}
+                onChange={(e) => setNewProgressItem({ ...newProgressItem, topic: e.target.value })}
+              />
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="% avanço"
+                value={newProgressItem.percentage}
+                onChange={(e) => setNewProgressItem({ ...newProgressItem, percentage: e.target.value })}
+              />
+              <Button
+                disabled={!canCreateProgress || createProgressMutation.isPending}
+                onClick={() => createProgressMutation.mutate(newProgressItem)}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Adicionar
+              </Button>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead>Tópico</TableHead>
+                  <TableHead className="w-[150px]">Percentual</TableHead>
+                  <TableHead className="w-[110px]">Ordem</TableHead>
+                  <TableHead className="w-[90px]">Ativo</TableHead>
+                  <TableHead className="w-[120px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {progressTopics.map((item) => {
+                  const isEditing = editingProgressId === item.id;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {isEditing ? (
+                          <Input value={editingProgressItem.topic} onChange={(e) => setEditingProgressItem({ ...editingProgressItem, topic: e.target.value })} />
+                        ) : (
+                          <span className="font-medium">{item.topic}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <Input type="number" min="0" max="100" value={editingProgressItem.percentage} onChange={(e) => setEditingProgressItem({ ...editingProgressItem, percentage: e.target.value })} />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+                              <div className="h-full bg-[#8b341f]" style={{ width: `${normalizePercentage(item.percentage)}%` }} />
+                            </div>
+                            <span>{normalizePercentage(item.percentage)}%</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <Input type="number" value={editingProgressItem.sort_order} onChange={(e) => setEditingProgressItem({ ...editingProgressItem, sort_order: e.target.value })} />
+                        ) : item.sort_order}
+                      </TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <input type="checkbox" checked={editingProgressItem.is_active} onChange={(e) => setEditingProgressItem({ ...editingProgressItem, is_active: e.target.checked })} />
+                        ) : item.is_active !== false ? 'Sim' : 'Não'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {canEdit && isEditing ? (
+                          <div className="flex justify-end gap-1">
+                            <Button size="sm" onClick={() => updateProgressMutation.mutate({ id: item.id, data: editingProgressItem })}>Salvar</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingProgressId(null)}>Cancelar</Button>
+                          </div>
+                        ) : canEdit ? (
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => startProgressEdit(item)}>
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteProgressMutation.mutate(item.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!progressTopics.length && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-sm text-slate-500">
+                      Nenhum tópico cadastrado. Adicione linhas como Fundação, Estrutura, Pintura e seus percentuais.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-xs text-slate-500">
+            O plugin WordPress só consome esta lista quando a publicação estiver habilitada e o token do cliente tiver escopo de gráfico.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[600px]">
 

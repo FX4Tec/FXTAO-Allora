@@ -28,6 +28,10 @@ const emptyForm = {
   plan_code: 'enterprise',
   primary_domain: '',
   operational_status: 'active',
+  database_label: '',
+  database_url: '',
+  provision_database: true,
+  has_database_url: false,
   local_login_enabled: true,
   microsoft_login_enabled: false,
 };
@@ -70,6 +74,10 @@ const normalizeForm = (tenant) => ({
   plan_code: tenant?.plan_code || 'enterprise',
   primary_domain: tenant?.primary_domain || '',
   operational_status: tenant?.operational_status || 'active',
+  database_label: tenant?.database_label || '',
+  database_url: '',
+  provision_database: !tenant?.has_database_url,
+  has_database_url: Boolean(tenant?.has_database_url),
   local_login_enabled: tenant?.local_login_enabled !== false,
   microsoft_login_enabled: Boolean(tenant?.microsoft_login_enabled),
 });
@@ -105,9 +113,15 @@ export default function SaasAdmin() {
         plan_code: form.plan_code,
         primary_domain: form.primary_domain.trim().toLowerCase() || null,
         operational_status: form.operational_status,
+        database_label: form.database_label.trim() || null,
         local_login_enabled: form.local_login_enabled,
         microsoft_login_enabled: form.microsoft_login_enabled,
       };
+
+      if (!form.id || !form.has_database_url) {
+        payload.provision_database = Boolean(form.provision_database);
+        payload.database_url = form.provision_database ? null : form.database_url.trim() || null;
+      }
 
       if (form.id) return api.put(`/saas/tenants/${form.id}`, payload);
       return api.post('/saas/tenants', payload);
@@ -135,6 +149,7 @@ export default function SaasAdmin() {
   };
 
   const canSave = form.slug.trim().length >= 2 && form.display_name.trim().length >= 2;
+  const canConfigureDatabase = !form.id || !form.has_database_url;
   const activeTenants = tenants.filter((tenant) => tenant.operational_status === 'active').length;
   const connectedTenants = tenants.filter((tenant) => tenant.stats?.database_status === 'connected').length;
 
@@ -200,6 +215,50 @@ export default function SaasAdmin() {
                 <option value="pending">Pendente</option>
                 <option value="suspended">Suspenso</option>
               </select>
+            </div>
+            <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm font-semibold text-slate-900">Banco segregado do cliente</Label>
+                  <p className="text-xs text-slate-500">Opção B: cada cliente opera em um banco PostgreSQL isolado.</p>
+                </div>
+                {canConfigureDatabase && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.provision_database}
+                      onChange={(e) => setForm({ ...form, provision_database: e.target.checked })}
+                    />
+                    Criar banco automaticamente
+                  </label>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Identificação do banco</Label>
+                  <Input
+                    value={form.database_label}
+                    onChange={(e) => setForm({ ...form, database_label: e.target.value })}
+                    placeholder={form.slug ? `tenant_${form.slug.trim().toLowerCase()}` : 'tenant_seiji'}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Usado como nome do DB no provisionamento automático.</p>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Input value={!canConfigureDatabase ? 'Banco existente preservado' : (form.provision_database ? 'Será criado ao salvar' : 'URL manual informada ao salvar')} disabled />
+                </div>
+                {canConfigureDatabase && !form.provision_database && (
+                  <div className="md:col-span-2">
+                    <Label>DATABASE_URL manual</Label>
+                    <Input
+                      value={form.database_url}
+                      onChange={(e) => setForm({ ...form, database_url: e.target.value })}
+                      placeholder="postgresql://usuario:senha@host:5432/tenant_seiji?schema=public"
+                    />
+                    <p className="mt-1 text-xs text-amber-700">Será gravada no catálogo central; use apenas URL do banco deste cliente.</p>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="md:col-span-2 flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.local_login_enabled} onChange={(e) => setForm({ ...form, local_login_enabled: e.target.checked })} /> Login local habilitado</label>

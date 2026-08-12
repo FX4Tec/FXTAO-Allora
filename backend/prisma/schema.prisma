@@ -467,6 +467,7 @@ model Tao {
 
   // Public map publication
   is_public_map_enabled Boolean   @default(false)
+  is_public_progress_enabled Boolean @default(false)
   public_slug           String?
   public_image_url      String?
   public_description    String?   @db.Text
@@ -492,8 +493,10 @@ model Tao {
   authorized_bank_accounts      TaoAuthorizedBankAccount[]
   financial_composition_items   TaoFinancialCompositionItem[]
   indirect_expense_items        TaoIndirectExpenseItem[]
+  progress_topics               TaoProgressTopic[]
 
   @@index([is_public_map_enabled, updated_at])
+  @@index([is_public_progress_enabled, updated_at])
   @@index([public_slug])
   @@index([status, updated_at])
   @@map("taos")
@@ -604,6 +607,22 @@ model TaoAttachment {
   file_type String?
 
   @@map("tao_attachments")
+}
+
+model TaoProgressTopic {
+  id         String   @id @default(uuid())
+  tao_id     String
+  tao        Tao      @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  topic      String
+  percentage Decimal  @default(0) @db.Decimal(5, 2)
+  sort_order Int      @default(0)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([tao_id])
+  @@index([tao_id, is_active, sort_order])
+  @@map("tao_progress_topics")
 }
 
 model TaoFinancialCompositionItem {

@@ -154,6 +154,7 @@ const TAO_BOOLEAN_FIELDS = [
     'cnd_iss_status',
     'cnd_inss_status',
     'is_public_map_enabled',
+    'is_public_progress_enabled',
 ];
 
 const TAO_ALLOWED_FIELDS = [
@@ -161,7 +162,7 @@ const TAO_ALLOWED_FIELDS = [
     'current_approval_level', 'calculation_mode', 'registration_type', 'tao_lifecycle_status',
     'erp_number', 'opening_date', 'area_m2',
     'latitude', 'longitude', 'construction_situation', 'is_registration_consistent',
-    'is_public_map_enabled', 'public_slug', 'public_image_url', 'public_description',
+    'is_public_map_enabled', 'is_public_progress_enabled', 'public_slug', 'public_image_url', 'public_description',
     'public_status_override', 'public_client_name', 'public_address_number', 'geocoded_at',
     'center_cost_client', 'extra_center_costs_client',
     'center_cost_allora', 'project_code', 'proposal_number', 'client_code', 'has_manager',
@@ -264,6 +265,7 @@ const TAO_INCLUDE = {
     team_members: true,
     contacts: true,
     attachments: true,
+    progress_topics: { orderBy: { sort_order: 'asc' } },
     approvers: true,
     logs: { orderBy: { created_at: 'desc' } },
     direct_billing_document_items: { orderBy: { sort_order: 'asc' } },
