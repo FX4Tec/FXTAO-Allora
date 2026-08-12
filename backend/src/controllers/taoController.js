@@ -710,6 +710,36 @@ const getRequestUser = async (reqOrUserId) => {
     });
 };
 
+const resolveTenantWriteUserId = async (transaction, req, user) => {
+    if (!req?.fx4User) return req?.userId || user?.id || null;
+
+    const email = String(user?.email || req.fx4User.email || '').trim().toLowerCase();
+    if (!email) return req.userId;
+
+    const existingUser = await transaction.user.findUnique({
+        where: { email },
+        select: { id: true },
+    });
+
+    if (existingUser?.id) return existingUser.id;
+
+    const createdUser = await transaction.user.create({
+        data: {
+            email,
+            full_name: req.assistedTenant?.display_name
+                ? `Suporte FX4 em ${req.assistedTenant.display_name}`
+                : user?.full_name || 'Suporte FX4',
+            role: 'admin',
+            auth_provider: 'local',
+            is_active: true,
+            can_view_restricted_tao_fields: true,
+        },
+        select: { id: true },
+    });
+
+    return createdUser.id;
+};
+
 const ensureTaoExists = async (transaction, taoId, currentTaoId = null) => {
     if (!siengeHasValue(taoId)) return null;
 
@@ -1225,10 +1255,12 @@ exports.create = async (req, res) => {
         const user = await getRequestUser(req);
         const body = sanitizeWriteBody(req.body || {}, user);
         const data = buildTaoData(body, user);
-        data.created_by_id = req.userId;
-        data.updated_by_id = req.userId;
 
         const tao = await prisma.$transaction(async (transaction) => {
+            const writerUserId = await resolveTenantWriteUserId(transaction, req, user);
+            data.created_by_id = writerUserId;
+            data.updated_by_id = writerUserId;
+
             const { relationData, costCenters, authorizedBankAccountIds } = await resolveSiengeReferences(
                 transaction,
                 body
@@ -1400,12 +1432,13 @@ exports.update = async (req, res) => {
                 body,
                 id
             );
+            const writerUserId = await resolveTenantWriteUserId(transaction, req, user);
 
             const updateData = {
                 ...data,
                 ...relationData,
                 ...buildLifecycleMetadata(data, existing),
-                updated_by_id: req.userId,
+                updated_by_id: writerUserId,
             };
 
             if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
@@ -1519,6 +1552,7 @@ exports.decideApproval = async (req, res) => {
                 : expectedLevel;
             const decisionLevel = approver?.level || expectedLevel;
             const isFinalApproval = action === 'approved' && decisionLevel >= maxLevel;
+            const writerUserId = await resolveTenantWriteUserId(transaction, req, user);
 
             await transaction.taoApprovalHistory.create({
                 data: {
@@ -1539,7 +1573,7 @@ exports.decideApproval = async (req, res) => {
                     tao_lifecycle_status: action === 'rejected' ? 'REPROVADA' : isFinalApproval ? 'APROVADA' : 'EM_VALIDACAO',
                     approved_at: isFinalApproval ? new Date() : null,
                     rejection_reason: action === 'rejected' ? comments : null,
-                    updated_by_id: user.id,
+                    updated_by_id: writerUserId,
                 },
             });
 
