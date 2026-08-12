@@ -69,19 +69,22 @@
     const items = payload?.data?.items || [];
     const title = payload?.title || config.title || 'Evolução da Obra';
     const chartType = payload?.chart_type || config.chartType || 'bar';
+    const wrapperClass = config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card';
+    const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(title)}</h2>`;
+    const footerMarkup = config.showFooter === false ? '' : renderFooter(config, payload);
 
     if (!items.length) {
-      element.innerHTML = `<div class="fxtao-progress-card"><h2>${escapeHtml(title)}</h2><p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${renderFooter(config, payload)}</div>`;
+      element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}<p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${footerMarkup}</div>`;
       return;
     }
 
     const body = chartType === 'vertical' ? renderVertical(items) : chartType === 'donut' ? renderDonut(items) : renderBar(items);
-    element.innerHTML = `<div class="fxtao-progress-card"><h2>${escapeHtml(title)}</h2>${body}${renderFooter(config, payload)}</div>`;
+    element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}${body}${footerMarkup}</div>`;
   };
 
   const renderFooter = (config, payload) => {
     const updated = payload?.last_update ? new Date(payload.last_update).toLocaleString() : '';
-    const link = config.fxtaoUrl ? `<a href="${escapeHtml(config.fxtaoUrl)}" target="_blank" rel="noopener">Abrir FXTAO</a>` : '';
+    const link = config.showLink === false || !config.fxtaoUrl ? '' : `<a href="${escapeHtml(config.fxtaoUrl)}" target="_blank" rel="noopener">Abrir FXTAO</a>`;
     const button = config.showRefreshButton ? '<button type="button" class="fxtao-progress-refresh">Atualizar agora</button>' : '';
     return `<div class="fxtao-progress-footer"><span>${updated ? `Atualizado em ${escapeHtml(updated)}` : ''}</span><div>${link}${button}</div></div>`;
   };
@@ -90,11 +93,16 @@
     element.classList.add('is-loading');
     try {
       const response = await fetch(endpointUrl(config, refresh), { credentials: 'same-origin' });
-      const payload = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : null;
+      if (!payload) throw new Error('Resposta inválida do WordPress/servidor. Verifique o proxy REST e o cache do site.');
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
       renderChart(element, payload, config);
     } catch (error) {
-      element.innerHTML = `<div class="fxtao-progress-card"><h2>${escapeHtml(config.title || 'Evolução da Obra')}</h2><p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${renderFooter(config, null)}</div>`;
+      const wrapperClass = config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card';
+      const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(config.title || 'Evolução da Obra')}</h2>`;
+      const footerMarkup = config.showFooter === false ? '' : renderFooter(config, null);
+      element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}</div>`;
     } finally {
       element.classList.remove('is-loading');
     }

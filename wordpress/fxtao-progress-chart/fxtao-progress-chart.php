@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -22,6 +22,7 @@ final class FXTAO_Progress_Chart_Plugin
         add_action('admin_init', [self::class, 'registerSettings']);
         add_action('rest_api_init', [self::class, 'registerRestRoutes']);
         add_shortcode('fxtao_progress_chart', [self::class, 'renderShortcode']);
+        add_shortcode('fxtao_progress_chart_grafico', [self::class, 'renderChartOnlyShortcode']);
         add_action('wp_enqueue_scripts', [self::class, 'registerAssets']);
     }
 
@@ -58,14 +59,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.0.0'
+            '1.1.0'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.0.0',
+            '1.1.0',
             true
         );
     }
@@ -182,7 +183,8 @@ final class FXTAO_Progress_Chart_Plugin
             <pre>[fxtao_progress_chart]
 [fxtao_progress_chart obra="APARTAMENTO LG"]
 [fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
-[fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]</pre>
+[fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]</pre>
         </div>
         <?php
     }
@@ -259,6 +261,16 @@ final class FXTAO_Progress_Chart_Plugin
 
     public static function renderShortcode($atts): string
     {
+        return self::renderChartShortcode($atts, false);
+    }
+
+    public static function renderChartOnlyShortcode($atts): string
+    {
+        return self::renderChartShortcode($atts, true);
+    }
+
+    private static function renderChartShortcode($atts, bool $chartOnly): string
+    {
         $settings = self::settings();
         $atts = shortcode_atts([
             'cliente' => $settings['tenant_slug'],
@@ -267,6 +279,12 @@ final class FXTAO_Progress_Chart_Plugin
             'titulo' => $settings['title'],
             'atualizacao_minutos' => $settings['refresh_minutes'],
             'fxtao_url' => $settings['fxtao_url'],
+            'mostrar_titulo' => $chartOnly ? 'false' : 'true',
+            'titulo_visivel' => $chartOnly ? 'false' : 'true',
+            'rodape' => $chartOnly ? 'false' : 'true',
+            'botao' => $chartOnly ? 'false' : ($settings['show_refresh_button'] ? 'true' : 'false'),
+            'link' => $chartOnly ? 'false' : 'true',
+            'cartao' => $chartOnly ? 'false' : 'true',
         ], $atts, 'fxtao_progress_chart');
 
         wp_enqueue_style('fxtao-progress-chart');
@@ -280,7 +298,13 @@ final class FXTAO_Progress_Chart_Plugin
             'chartType' => sanitize_key($atts['tipo']),
             'title' => sanitize_text_field($atts['titulo']),
             'refreshMinutes' => max(1, absint($atts['atualizacao_minutos'])),
-            'showRefreshButton' => (bool)$settings['show_refresh_button'],
+            'showTitle' => self::booleanAttribute($atts['mostrar_titulo'], true)
+                && self::booleanAttribute($atts['titulo_visivel'], true)
+                && self::booleanAttribute($atts['titulo'], true),
+            'showFooter' => self::booleanAttribute($atts['rodape'], true),
+            'showRefreshButton' => self::booleanAttribute($atts['botao'], (bool)$settings['show_refresh_button']),
+            'showLink' => self::booleanAttribute($atts['link'], true),
+            'card' => self::booleanAttribute($atts['cartao'], true),
             'fxtaoUrl' => esc_url_raw($atts['fxtao_url']),
         ];
 
@@ -289,6 +313,15 @@ final class FXTAO_Progress_Chart_Plugin
             esc_attr($elementId),
             esc_attr(wp_json_encode($config))
         );
+    }
+
+    private static function booleanAttribute($value, bool $fallback): bool
+    {
+        if ($value === '' || $value === null) {
+            return $fallback;
+        }
+
+        return in_array(strtolower((string)$value), ['1', 'true', 'sim', 'yes', 'on'], true);
     }
 }
 

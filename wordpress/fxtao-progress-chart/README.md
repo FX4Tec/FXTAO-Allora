@@ -35,7 +35,11 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 [fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
 [fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]
 [fxtao_progress_chart tipo="donut" titulo="Resumo da Obra"]
+[fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar" mostrar_titulo="false" rodape="false" botao="false" link="false" cartao="false"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
 ```
+
+Use `fxtao_progress_chart_grafico` quando quiser somente o gráfico, sem título, cartão, rodapé, botão ou link.
 
 ## Segurança
 

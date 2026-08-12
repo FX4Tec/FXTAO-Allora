@@ -13,12 +13,21 @@
   padding: clamp(24px, 5vw, 56px);
 }
 
-.fxtao-progress-card h2 {
-  color: #050505;
-  font-size: clamp(32px, 5vw, 64px);
-  font-weight: 800;
-  line-height: 1.05;
-  margin: 0 0 48px;
+.fxtao-progress-body {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.fxtao-progress-card h2,
+.fxtao-progress-body h2 {
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  margin: 0 0 24px;
   text-align: center;
 }
 
