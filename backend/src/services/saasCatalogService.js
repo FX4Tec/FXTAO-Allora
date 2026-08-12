@@ -188,23 +188,45 @@ const safeListTenants = async () => {
 };
 
 const writeAuditLog = async ({ req, tenantId, userEmail, action, resource, beforeData, afterData, result = 'success' }) => {
+    const data = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId || null,
+        user_email: userEmail || null,
+        ip_address: req?.ip || null,
+        user_agent: req?.headers?.['user-agent'] || null,
+        action,
+        resource: resource || null,
+        before_data: beforeData || undefined,
+        after_data: afterData || undefined,
+        result,
+        trace_id: req?.headers?.['x-request-id'] || crypto.randomUUID(),
+    };
+
     try {
-        await prisma.saasAuditLog.create({
-            data: {
-                id: crypto.randomUUID(),
-                tenant_id: tenantId || null,
-                user_email: userEmail || null,
-                ip_address: req?.ip || null,
-                user_agent: req?.headers?.['user-agent'] || null,
-                action,
-                resource: resource || null,
-                before_data: beforeData || undefined,
-                after_data: afterData || undefined,
-                result,
-                trace_id: req?.headers?.['x-request-id'] || crypto.randomUUID(),
-            },
-        });
+        await prisma.saasAuditLog.create({ data });
     } catch (error) {
+        if (error?.code === 'P2003' && data.tenant_id) {
+            try {
+                await prisma.saasAuditLog.create({
+                    data: {
+                        ...data,
+                        id: crypto.randomUUID(),
+                        tenant_id: null,
+                        after_data: {
+                            ...(afterData || {}),
+                            original_tenant_id: data.tenant_id,
+                        },
+                    },
+                });
+                return;
+            } catch (retryError) {
+                if (!isMissingCatalogError(retryError)) {
+                    console.error('Failed to write SaaS audit log without tenant FK:', retryError);
+                }
+                return;
+            }
+        }
+
         if (!isMissingCatalogError(error)) {
             console.error('Failed to write SaaS audit log:', error);
         }
