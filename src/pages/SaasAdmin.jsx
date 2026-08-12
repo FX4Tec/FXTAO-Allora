@@ -4,6 +4,8 @@ import {
   Activity,
   Building2,
   Database,
+  Download,
+  FileCode2,
   Globe2,
   Pencil,
   Plus,
@@ -170,6 +172,23 @@ export default function SaasAdmin() {
         <Card><CardContent className="pt-6"><Database className="mb-2 h-5 w-5 text-indigo-700" /><div className="text-2xl font-bold">{connectedTenants}</div><p className="text-xs text-slate-500">bancos conectados</p></CardContent></Card>
         <Card><CardContent className="pt-6"><ShieldCheck className="mb-2 h-5 w-5 text-amber-700" /><div className="text-2xl font-bold">Opção B</div><p className="text-xs text-slate-500">banco por cliente</p></CardContent></Card>
       </div>
+
+      <Card className="border-indigo-100 bg-indigo-50/60">
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-indigo-950">
+              <FileCode2 className="h-5 w-5 text-indigo-700" />
+              Webpart SharePoint FXTAO
+            </CardTitle>
+            <p className="text-sm text-indigo-700">Pacote SPFx para instalar no catálogo de aplicativos do SharePoint e consumir dados das obras via FXTAO.</p>
+          </div>
+          <Button asChild className="bg-indigo-700 hover:bg-indigo-800">
+            <a href="/downloads/fxtao-work-page.sppkg" download>
+              <Download className="mr-2 h-4 w-4" /> Baixar webpart
+            </a>
+          </Button>
+        </CardHeader>
+      </Card>
 
       {showForm && (
         <Card className="border-blue-200">
