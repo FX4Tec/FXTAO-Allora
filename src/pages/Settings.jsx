@@ -314,6 +314,17 @@ export default function Settings() {
               </a>
             </Button>
           </CardContent>
+          <CardContent className="flex flex-col gap-3 border-t border-indigo-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-indigo-950">
+              <p className="font-medium">Plugin WordPress: fxtao-public-map.zip</p>
+              <p className="text-indigo-700">Componente de mapa de obras ativas para páginas WordPress, com token protegido no servidor.</p>
+            </div>
+            <Button asChild variant="outline" className="border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-100">
+              <a href="/downloads/fxtao-public-map.zip" download>
+                <Download className="mr-2 h-4 w-4" /> Baixar plugin WordPress
+              </a>
+            </Button>
+          </CardContent>
         </Card>
 
         <Card className="border-blue-100 bg-blue-50/60 shadow-sm">

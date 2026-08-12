@@ -188,6 +188,20 @@ export default function SaasAdmin() {
             </a>
           </Button>
         </CardHeader>
+        <CardContent className="flex flex-col gap-3 border-t border-indigo-100 pt-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-indigo-950">
+              <FileCode2 className="h-5 w-5 text-indigo-700" />
+              Plugin WordPress Mapa FXTAO
+            </CardTitle>
+            <p className="text-sm text-indigo-700">Plugin para inserir mapa de obras ativas em páginas WordPress, com seleção de cliente/obra e token protegido.</p>
+          </div>
+          <Button asChild variant="outline" className="border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-100">
+            <a href="/downloads/fxtao-public-map.zip" download>
+              <Download className="mr-2 h-4 w-4" /> Baixar plugin WordPress
+            </a>
+          </Button>
+        </CardContent>
       </Card>
 
       {showForm && (
