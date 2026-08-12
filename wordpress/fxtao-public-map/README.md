@@ -63,6 +63,18 @@ Mapa sem seletor e com refresh a cada 60 segundos:
 [fxtao_public_map cliente="cinci" seletor="false" refresh="60"]
 ```
 
+Mapa com popup exibindo apenas o nome da obra:
+
+```text
+[fxtao_public_map_nome cliente="cinci" seletor="false" refresh="60"]
+```
+
+Mapa com popup exibindo nome da obra e status:
+
+```text
+[fxtao_public_map_nome_status cliente="cinci" seletor="false" refresh="60"]
+```
+
 Altura customizada:
 
 ```text

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Public Map
  * Description: Exibe no WordPress um componente de mapa de obras ativas do FXTAO SaaS, com token protegido no servidor.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: FX4 Tecnologia
  */
 
@@ -21,6 +21,8 @@ final class FXTAO_Public_Map_Plugin
         add_action('admin_init', [self::class, 'registerSettings']);
         add_action('rest_api_init', [self::class, 'registerRestRoutes']);
         add_shortcode('fxtao_public_map', [self::class, 'renderShortcode']);
+        add_shortcode('fxtao_public_map_nome', [self::class, 'renderNameOnlyShortcode']);
+        add_shortcode('fxtao_public_map_nome_status', [self::class, 'renderNameAndStatusShortcode']);
     }
 
     public static function registerSettingsPage(): void
@@ -141,11 +143,28 @@ final class FXTAO_Public_Map_Plugin
             <p>Mapa de uma obra específica: <code>[fxtao_public_map obra="CASA ATLÂNTICA"]</code></p>
             <p>Mapa com cliente explícito: <code>[fxtao_public_map cliente="cinci" seletor="true"]</code></p>
             <p>Mapa sem seletor e com refresh a cada 60 segundos: <code>[fxtao_public_map cliente="cinci" seletor="false" refresh="60"]</code></p>
+            <p>Mapa exibindo apenas o nome da obra no marcador: <code>[fxtao_public_map_nome cliente="cinci" refresh="60"]</code></p>
+            <p>Mapa exibindo nome da obra e status no marcador: <code>[fxtao_public_map_nome_status cliente="cinci" refresh="60"]</code></p>
         </div>
         <?php
     }
 
     public static function renderShortcode($atts): string
+    {
+        return self::renderMapShortcode($atts, 'complete');
+    }
+
+    public static function renderNameOnlyShortcode($atts): string
+    {
+        return self::renderMapShortcode($atts, 'name');
+    }
+
+    public static function renderNameAndStatusShortcode($atts): string
+    {
+        return self::renderMapShortcode($atts, 'name_status');
+    }
+
+    private static function renderMapShortcode($atts, string $popupMode): string
     {
         $atts = shortcode_atts([
             'height' => '520px',
@@ -159,8 +178,8 @@ final class FXTAO_Public_Map_Plugin
 
         wp_enqueue_style('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', [], '1.9.4');
         wp_enqueue_script('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', [], '1.9.4', true);
-        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.3.0');
-        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.3.0', true);
+        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.4.0');
+        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.4.0', true);
 
         $settings = self::settings();
         wp_localize_script('fxtao-public-map', 'FXTAOPublicMap', [
@@ -178,14 +197,16 @@ final class FXTAO_Public_Map_Plugin
         $refreshSeconds = $atts['refresh'] === ''
             ? (int) $settings['refresh_seconds']
             : max(0, min(3600, absint($atts['refresh'])));
+        $popupMode = in_array($popupMode, ['complete', 'name', 'name_status'], true) ? $popupMode : 'complete';
 
         return sprintf(
-            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-active-only="%s" data-show-selector="%s" data-refresh-seconds="%d"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
+            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-active-only="%s" data-show-selector="%s" data-refresh-seconds="%d" data-popup-mode="%s"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
             esc_attr($tenant),
             esc_attr($workFilter),
             $activeOnly ? '1' : '0',
             $showSelector ? '1' : '0',
             $refreshSeconds,
+            esc_attr($popupMode),
             esc_attr($height)
         );
     }

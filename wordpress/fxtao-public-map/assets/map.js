@@ -17,7 +17,18 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 
-    const buildPopup = (obra) => {
+    const buildPopup = (obra, popupMode) => {
+        if (popupMode === 'name') {
+            return `<strong>${escapeHtml(obra.nome)}</strong>`;
+        }
+
+        if (popupMode === 'name_status') {
+            return [
+                `<strong>${escapeHtml(obra.nome)}</strong>`,
+                obra.status ? `<span>Status: ${escapeHtml(statusLabel[obra.status] || obra.status)}</span>` : '',
+            ].filter(Boolean).join('<br>');
+        }
+
         const address = [
             obra.endereco,
             obra.numero,
@@ -57,17 +68,18 @@
         markerLayers.set(map, []);
     };
 
-    const renderMarkers = (map, works, status) => {
+    const renderMarkers = (shell, map, works, status) => {
         clearMarkers(map);
         const bounds = [];
         const layers = [];
+        const popupMode = shell.dataset.popupMode || 'complete';
 
         works.forEach((obra) => {
             const latitude = Number(obra.latitude);
             const longitude = Number(obra.longitude);
             if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
 
-            const marker = L.marker([latitude, longitude]).addTo(map).bindPopup(buildPopup(obra));
+            const marker = L.marker([latitude, longitude]).addTo(map).bindPopup(buildPopup(obra, popupMode));
             layers.push(marker);
             bounds.push([latitude, longitude]);
         });
@@ -114,6 +126,7 @@
         select.onchange = () => {
             const selected = select.value;
             renderMarkers(
+                shell,
                 map,
                 selected ? works.filter((obra) => workIdentifier(obra) === selected) : works,
                 status
@@ -135,6 +148,7 @@
             populateSelector(shell, works, map, status);
             const select = shell.querySelector('.fxtao-public-map__select');
             renderMarkers(
+                shell,
                 map,
                 select && select.value ? works.filter((obra) => workIdentifier(obra) === select.value) : works,
                 status
