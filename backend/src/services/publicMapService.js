@@ -321,7 +321,11 @@ const fetchPublicMapRecords = async (prismaClient = prisma) =>
     prismaClient.tao.findMany({
         where: {
             is_public_map_enabled: true,
-            approval_status: 'approved',
+            OR: [
+                { approval_flow_enabled: false },
+                { approval_flow_enabled: null },
+                { approval_status: 'approved' },
+            ],
         },
         orderBy: [
             { updated_at: 'desc' },

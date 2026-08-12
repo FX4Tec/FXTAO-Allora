@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart3, Edit2, Plus, Trash2, Paperclip, ExternalLink, File, Image as ImageIcon, X } from 'lucide-react';
+import { BarChart3, Edit2, Plus, Trash2, Paperclip, ExternalLink, File, Image as ImageIcon, MapPin, X } from 'lucide-react';
 import { toast } from "sonner";
 
 export default function TaoStep5({ taoData, updateTao, canEdit }) {
@@ -133,6 +133,18 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
     },
   });
 
+  const updateMapPublicationMutation = useMutation({
+    mutationFn: (enabled) => api.put(`/taos/${taoId}`, { is_public_map_enabled: enabled }),
+    onSuccess: (response) => {
+      updateTao({ ...taoData, is_public_map_enabled: Boolean(response.data?.is_public_map_enabled) });
+      toast.success("Publicação no mapa público atualizada");
+    },
+    onError: (error, enabled) => {
+      updateTao({ ...taoData, is_public_map_enabled: !enabled });
+      toast.error(error?.response?.data?.details || "Erro ao atualizar publicação no mapa público.");
+    },
+  });
+
   const updateProgressPublicationMutation = useMutation({
     mutationFn: (enabled) => api.put(`/taos/${taoId}`, { is_public_progress_enabled: enabled }),
     onSuccess: (response) => {
@@ -220,6 +232,55 @@ export default function TaoStep5({ taoData, updateTao, canEdit }) {
           </Button>
         )}
       </div>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase text-indigo-700">
+                <MapPin className="h-4 w-4" />
+                Publicação no Mapa Público
+              </CardTitle>
+              <p className="mt-1 text-sm text-slate-500">
+                Libere esta obra para aparecer no plugin WordPress de mapa, respeitando a segregação do cliente.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(taoData.is_public_map_enabled)}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  updateTao({ ...taoData, is_public_map_enabled: enabled });
+                  updateMapPublicationMutation.mutate(enabled);
+                }}
+                disabled={!canEdit || updateMapPublicationMutation.isPending}
+              />
+              Publicar obra no mapa público
+            </label>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 p-4 text-sm text-slate-600">
+          <p>
+            Para aparecer no WordPress, a obra precisa estar publicada e ter latitude/longitude cadastradas.
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Latitude</p>
+              <p className="font-mono text-slate-800">{taoData.latitude || 'Não informada'}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Longitude</p>
+              <p className="font-mono text-slate-800">{taoData.longitude || 'Não informada'}</p>
+            </div>
+          </div>
+          {Boolean(taoData.is_public_map_enabled) && (!taoData.latitude || !taoData.longitude) && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+              Publicação ativada, mas esta obra ainda não aparecerá no mapa até receber latitude e longitude.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
