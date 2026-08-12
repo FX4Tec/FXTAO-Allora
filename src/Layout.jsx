@@ -74,6 +74,8 @@ export default function Layout({ children, currentPageName }) {
 
   const clientLogoUrl = systemConfigs?.find(c => c.key === 'client_logo_url')?.value;
   const fx4LogoUrl = "https://fx4.com.br/wp-content/uploads/2025/07/logo-bola.png";
+  const sidebarLogoUrl = clientLogoUrl || fx4LogoUrl;
+  const sidebarLogoAlt = clientLogoUrl ? 'Client Logo' : 'FX4 Logo';
 
   const handleLogout = async () => {
     logout();
@@ -107,7 +109,7 @@ export default function Layout({ children, currentPageName }) {
       {/* Sidebar Desktop - Dark Theme */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white border-r border-slate-800 fixed h-full z-30">
         <div className="p-6 border-b border-slate-800 flex flex-col items-center gap-2">
-          <img src={fx4LogoUrl} alt="FX4 Logo" className="h-14 w-auto" />
+          <img src={sidebarLogoUrl} alt={sidebarLogoAlt} className="max-h-16 max-w-40 rounded bg-white object-contain p-1" />
           <div className="flex flex-col items-center">
             <span className="text-lg font-bold text-slate-200 tracking-wider">
               {assistedTenant ? `FXTAO - ${assistedTenant.display_name}` : 'FXTAO SaaS'}

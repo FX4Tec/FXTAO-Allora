@@ -19,20 +19,30 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [brandingEmail, setBrandingEmail] = useState('');
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setBrandingEmail(email.trim().toLowerCase());
+        }, 350);
+
+        return () => clearTimeout(timer);
+    }, [email]);
 
     // Fetch System Configs for Logos
     const { data: systemConfigs } = useQuery({
-        queryKey: ['loginBranding'],
+        queryKey: ['loginBranding', brandingEmail],
         queryFn: async () => {
             try {
-                const res = await api.get('/auth/branding');
+                const params = brandingEmail.includes('@') ? { email: brandingEmail } : undefined;
+                const res = await api.get('/auth/branding', { params });
                 return res.data || [];
             } catch (error) {
                 console.error("Failed to fetch configs", error);
                 return [];
             }
         },
-        staleTime: 1000 * 60 * 5 // 5 minutes
+        staleTime: 1000 * 60 * 5
     });
 
     const clientLogoUrl = systemConfigs?.find(c => c.key === 'client_logo_url')?.value;

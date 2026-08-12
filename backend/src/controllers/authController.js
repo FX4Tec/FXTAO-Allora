@@ -1,9 +1,38 @@
 const { catalogPrisma: prisma, getTenantClient } = require('../services/prismaService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { sanitizeTenant, writeAuditLog } = require('../services/saasCatalogService');
+const { sanitizeTenant, safeListTenants, writeAuditLog } = require('../services/saasCatalogService');
 
-const dbForRequest = (req) => (req.tenant?.database_url ? getTenantClient(req.tenant.database_url) : prisma);
+const dbForTenant = (tenant) => (tenant?.database_url ? getTenantClient(tenant.database_url) : prisma);
+const dbForRequest = (req) => dbForTenant(req.tenant);
+
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+const findTenantByUserEmail = async (email) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !normalizedEmail.includes('@')) return null;
+
+    const tenants = await safeListTenants();
+    for (const tenant of tenants) {
+        if (tenant.operational_status === 'suspended' || !tenant.database_url) continue;
+
+        try {
+            const tenantDb = getTenantClient(tenant.database_url);
+            const user = await tenantDb.user.findUnique({
+                where: { email: normalizedEmail },
+                select: { id: true },
+            });
+
+            if (user) return tenant;
+        } catch (error) {
+            console.error(`Failed to resolve branding tenant for ${tenant.slug}:`, error.message);
+        }
+    }
+
+    return null;
+};
+
+const resolveAuthTenant = async (req, email) => req.tenant || findTenantByUserEmail(email);
 
 const userSelect = {
     id: true,
@@ -86,8 +115,9 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const tenant = req.tenant;
-        const authDb = dbForRequest(req);
+        const normalizedEmail = normalizeEmail(email);
+        const tenant = await resolveAuthTenant(req, normalizedEmail);
+        const authDb = dbForTenant(tenant);
 
         if (tenant && tenant.local_login_enabled === false) {
             await writeAuditLog({
@@ -114,7 +144,7 @@ exports.login = async (req, res) => {
         }
 
         console.log(`Login attempt for: ${email}`);
-        const user = await authDb.user.findUnique({ where: { email } });
+        const user = await authDb.user.findUnique({ where: { email: normalizedEmail } });
         if (!user) {
             console.log('User not found');
             registerFailedLogin(req, email);
@@ -267,7 +297,8 @@ exports.changePassword = async (req, res) => {
 // Public branding used by login page (no token required)
 exports.branding = async (req, res) => {
     try {
-        const authDb = dbForRequest(req);
+        const tenant = await resolveAuthTenant(req, req.query.email);
+        const authDb = dbForTenant(tenant);
         const configs = await authDb.systemConfig.findMany({
             where: { key: { in: ['client_logo_url'] } },
             select: { key: true, value: true }
