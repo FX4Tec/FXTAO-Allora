@@ -268,6 +268,7 @@ const TAO_INCLUDE = {
     attachments: true,
     progress_topics: { orderBy: { sort_order: 'asc' } },
     approvers: true,
+    access_permissions: true,
     logs: { orderBy: { created_at: 'desc' } },
     direct_billing_document_items: { orderBy: { sort_order: 'asc' } },
     initial_checklist_items: { orderBy: { sort_order: 'asc' } },
@@ -1663,6 +1664,7 @@ exports.checkAccess = async (req, res) => {
             },
             include: {
                 approvers: true,
+                access_permissions: true,
                 team_members: true,
                 created_by: true,
             },
@@ -1683,6 +1685,11 @@ exports.checkAccess = async (req, res) => {
         const isApprover = tao.approvers.some((approver) => approver.user_email === userEmail);
         if (isApprover) {
             return res.status(200).json({ authorized: true, taoId: tao.id, reason: 'APPROVER' });
+        }
+
+        const hasWorkPermission = tao.access_permissions.some((permission) => permission.user_email === userEmail);
+        if (hasWorkPermission) {
+            return res.status(200).json({ authorized: true, taoId: tao.id, reason: 'WORK_PERMISSION' });
         }
 
         const isTeamMember = tao.team_members.some((member) => member.email === userEmail);

@@ -5,6 +5,7 @@ const modelMap = {
     'tao-additives': 'taoAdditive',
     'tao-logs': 'taoLog',
     'tao-approvers': 'taoApprover',
+    'tao-access-permissions': 'taoAccessPermission',
     'tao-approval-history': 'taoApprovalHistory',
     'tao-global-settings': 'taoGlobalSettings',
     'tao-contacts': 'taoContact',

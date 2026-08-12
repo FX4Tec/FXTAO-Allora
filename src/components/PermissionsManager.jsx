@@ -36,19 +36,19 @@ export default function PermissionsManager() {
     });
     const taos = taosResponse?.data || [];
 
-    // Fetch Approvers
-    const { data: approvers } = useQuery({
-        queryKey: ['tao-approvers'],
-        queryFn: async () => (await api.get('/resources/tao-approvers')).data
+    // Fetch Work Access Permissions
+    const { data: permissions } = useQuery({
+        queryKey: ['tao-access-permissions'],
+        queryFn: async () => (await api.get('/resources/tao-access-permissions')).data
     });
 
     const createMutation = useMutation({
-        mutationFn: (data) => api.post('/resources/tao-approvers', {
+        mutationFn: (data) => api.post('/resources/tao-access-permissions', {
             ...data,
             level: Number(data.level)
         }),
         onSuccess: () => {
-            queryClient.invalidateQueries(['tao-approvers']);
+            queryClient.invalidateQueries(['tao-access-permissions']);
             toast.success("Permissão adicionada com sucesso!");
             setFormData(prev => ({ ...prev, user_email: '', tao_id: '' }));
         },
@@ -56,9 +56,9 @@ export default function PermissionsManager() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id) => api.delete(`/resources/tao-approvers/${id}`),
+        mutationFn: (id) => api.delete(`/resources/tao-access-permissions/${id}`),
         onSuccess: () => {
-            queryClient.invalidateQueries(['tao-approvers']);
+            queryClient.invalidateQueries(['tao-access-permissions']);
             toast.success("Permissão removida!");
         },
         onError: () => toast.error("Erro ao remover permissão.")
@@ -143,7 +143,7 @@ export default function PermissionsManager() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {approvers?.map((perm) => (
+                        {permissions?.map((perm) => (
                             <TableRow key={perm.id}>
                                 <TableCell className="font-medium">{getUserName(perm.user_email)}</TableCell>
                                 <TableCell>{getTaoName(perm.tao_id)}</TableCell>
@@ -161,7 +161,7 @@ export default function PermissionsManager() {
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {(!approvers || approvers.length === 0) && (
+                        {(!permissions || permissions.length === 0) && (
                             <TableRow>
                                 <TableCell colSpan={5} className="text-center h-24 text-slate-500">
                                     Nenhuma permissão associada.

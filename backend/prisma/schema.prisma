@@ -122,6 +122,7 @@ model User {
   logs_performed    TaoLog[]           @relation("UserLogs") // Logs where user PERFORMED the action
   notifications     Notification[]
   approver_configs  TaoApprover[]
+  access_permissions TaoAccessPermission[]
 
   @@map("users")
 }
@@ -495,6 +496,7 @@ model Tao {
   financial_composition_items   TaoFinancialCompositionItem[]
   indirect_expense_items        TaoIndirectExpenseItem[]
   progress_topics               TaoProgressTopic[]
+  access_permissions            TaoAccessPermission[]
 
   @@index([is_public_map_enabled, updated_at])
   @@index([is_public_progress_enabled, updated_at])
@@ -706,6 +708,22 @@ model TaoApprover {
   scope      ApprovalScope
 
   @@map("tao_approvers")
+}
+
+model TaoAccessPermission {
+  id         String   @id @default(uuid())
+  tao_id     String
+  tao        Tao      @relation(fields: [tao_id], references: [id], onDelete: Cascade)
+  user_email String
+  user       User     @relation(fields: [user_email], references: [email])
+  level      Int      @default(1)
+  scope      String   @default("tao")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([tao_id, user_email])
+  @@index([user_email])
+  @@map("tao_access_permissions")
 }
 
 model TaoApprovalHistory {

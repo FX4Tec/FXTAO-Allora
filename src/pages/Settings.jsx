@@ -441,7 +441,7 @@ export default function Settings() {
               Permissões de Acesso por Obra
             </CardTitle>
             <CardDescription>
-              Associe usuários a obras específicas definindo nível de aprovação e acesso.
+              Associe usuários a obras específicas definindo nível de acesso. A hierarquia de aprovação fica no formulário da TAO.
             </CardDescription>
           </CardHeader>
           <CardContent>
