@@ -44,6 +44,7 @@ Use `fxtao_progress_chart_grafico` quando quiser somente o gráfico, sem título
 ## Segurança
 
 - O token nunca é enviado ao navegador; o frontend chama o proxy REST interno do WordPress.
+- Se o REST do WordPress for bloqueado pela hospedagem/cache, o plugin usa fallback seguro via `admin-ajax.php`.
 - Use um token por cliente e rotacione em caso de suspeita de exposição.
 - A API FXTAO só retorna dados da obra quando o tenant e a obra estão publicados para gráfico público.
 - Não reutilize o token de mapa para o gráfico; cada integração tem escopo próprio.

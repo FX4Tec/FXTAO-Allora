@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -21,6 +21,8 @@ final class FXTAO_Progress_Chart_Plugin
         add_action('admin_menu', [self::class, 'adminMenu']);
         add_action('admin_init', [self::class, 'registerSettings']);
         add_action('rest_api_init', [self::class, 'registerRestRoutes']);
+        add_action('wp_ajax_fxtao_progress_chart', [self::class, 'ajaxProgress']);
+        add_action('wp_ajax_nopriv_fxtao_progress_chart', [self::class, 'ajaxProgress']);
         add_shortcode('fxtao_progress_chart', [self::class, 'renderShortcode']);
         add_shortcode('fxtao_progress_chart_grafico', [self::class, 'renderChartOnlyShortcode']);
         add_action('wp_enqueue_scripts', [self::class, 'registerAssets']);
@@ -59,14 +61,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.1.1'
+            '1.2.0'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.1.1',
+            '1.2.0',
             true
         );
     }
@@ -211,6 +213,22 @@ final class FXTAO_Progress_Chart_Plugin
         }
     }
 
+    public static function ajaxProgress(): void
+    {
+        $request = new WP_REST_Request('GET', '/' . self::REST_NAMESPACE . '/progress');
+        foreach ($_GET as $key => $value) {
+            if ($key === 'action') {
+                continue;
+            }
+            $request->set_param(sanitize_key($key), is_scalar($value) ? wp_unslash($value) : $value);
+        }
+
+        $response = self::restProgress($request);
+        $status = method_exists($response, 'get_status') ? $response->get_status() : 200;
+        status_header($status);
+        wp_send_json($response->get_data(), $status);
+    }
+
     private static function doRestProgress(WP_REST_Request $request): WP_REST_Response
     {
         $settings = self::settings();
@@ -308,6 +326,7 @@ final class FXTAO_Progress_Chart_Plugin
         $elementId = 'fxtao-progress-chart-' . wp_generate_uuid4();
         $config = [
             'endpoint' => esc_url_raw(rest_url(self::REST_NAMESPACE . '/progress')),
+            'ajaxEndpoint' => esc_url_raw(admin_url('admin-ajax.php')),
             'tenant' => sanitize_key($atts['cliente']),
             'workRef' => sanitize_text_field($atts['obra']),
             'chartType' => sanitize_key($atts['tipo']),

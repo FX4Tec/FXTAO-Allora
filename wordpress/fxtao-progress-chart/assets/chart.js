@@ -14,6 +14,20 @@
     return `${config.endpoint}?${params.toString()}`;
   };
 
+  const ajaxEndpointUrl = (config, refresh) => {
+    const params = new URLSearchParams({
+      action: 'fxtao_progress_chart',
+      tenant: config.tenant || '',
+      obra: config.workRef || '',
+      tipo: config.chartType || 'bar',
+      titulo: config.title || 'Evolução da Obra',
+      fxtao_url: config.fxtaoUrl || '',
+    });
+
+    if (refresh) params.set('refresh', '1');
+    return `${config.ajaxEndpoint}?${params.toString()}`;
+  };
+
   const renderBar = (items) => `
     <div class="fxtao-progress-bars">
       ${items.map((item) => {
@@ -92,8 +106,12 @@
   const loadChart = async (element, config, refresh) => {
     element.classList.add('is-loading');
     try {
-      const response = await fetch(endpointUrl(config, refresh), { credentials: 'same-origin' });
-      const contentType = response.headers.get('content-type') || '';
+      let response = await fetch(endpointUrl(config, refresh), { credentials: 'same-origin' });
+      let contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json') && config.ajaxEndpoint) {
+        response = await fetch(ajaxEndpointUrl(config, refresh), { credentials: 'same-origin' });
+        contentType = response.headers.get('content-type') || '';
+      }
       const payload = contentType.includes('application/json') ? await response.json() : null;
       if (!payload) throw new Error('Resposta inválida do WordPress/servidor. Verifique o proxy REST e o cache do site.');
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
