@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Public Map
  * Description: Exibe no WordPress um componente de mapa de obras ativas do FXTAO SaaS, com token protegido no servidor.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: FX4 Tecnologia
  */
 
@@ -67,6 +67,7 @@ final class FXTAO_Public_Map_Plugin
             'default_longitude' => sanitize_text_field($settings['default_longitude'] ?? '-46.63331'),
             'default_zoom' => max(1, min(18, absint($settings['default_zoom'] ?? 11))),
             'cache_seconds' => max(0, min(3600, absint($settings['cache_seconds'] ?? 300))),
+            'refresh_seconds' => max(0, min(3600, absint($settings['refresh_seconds'] ?? 60))),
         ];
     }
 
@@ -125,6 +126,13 @@ final class FXTAO_Public_Map_Plugin
                         <th scope="row"><label for="fxtao_cache_seconds">Cache em segundos</label></th>
                         <td><input id="fxtao_cache_seconds" class="small-text" type="number" min="0" max="3600" name="<?php echo esc_attr(self::OPTION_KEY); ?>[cache_seconds]" value="<?php echo esc_attr($settings['cache_seconds']); ?>" /></td>
                     </tr>
+                    <tr>
+                        <th scope="row"><label for="fxtao_refresh_seconds">Refresh automático em segundos</label></th>
+                        <td>
+                            <input id="fxtao_refresh_seconds" class="small-text" type="number" min="0" max="3600" name="<?php echo esc_attr(self::OPTION_KEY); ?>[refresh_seconds]" value="<?php echo esc_attr($settings['refresh_seconds']); ?>" />
+                            <p class="description">Use 0 para desativar. O padrão é 60 segundos.</p>
+                        </td>
+                    </tr>
                 </table>
                 <?php submit_button('Salvar configurações'); ?>
             </form>
@@ -132,6 +140,7 @@ final class FXTAO_Public_Map_Plugin
             <p>Mapa padrão do cliente configurado: <code>[fxtao_public_map]</code></p>
             <p>Mapa de uma obra específica: <code>[fxtao_public_map obra="CASA ATLÂNTICA"]</code></p>
             <p>Mapa com cliente explícito: <code>[fxtao_public_map cliente="cinci" seletor="true"]</code></p>
+            <p>Mapa sem seletor e com refresh a cada 60 segundos: <code>[fxtao_public_map cliente="cinci" seletor="false" refresh="60"]</code></p>
         </div>
         <?php
     }
@@ -145,12 +154,13 @@ final class FXTAO_Public_Map_Plugin
             'obra' => '',
             'somente_ativas' => '',
             'seletor' => '',
+            'refresh' => '',
         ], $atts, 'fxtao_public_map');
 
         wp_enqueue_style('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', [], '1.9.4');
         wp_enqueue_script('leaflet', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', [], '1.9.4', true);
-        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.2.0');
-        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.2.0', true);
+        wp_enqueue_style('fxtao-public-map', plugins_url('assets/map.css', __FILE__), [], '1.3.0');
+        wp_enqueue_script('fxtao-public-map', plugins_url('assets/map.js', __FILE__), ['leaflet'], '1.3.0', true);
 
         $settings = self::settings();
         wp_localize_script('fxtao-public-map', 'FXTAOPublicMap', [
@@ -165,13 +175,17 @@ final class FXTAO_Public_Map_Plugin
         $workFilter = sanitize_text_field($atts['obra'] ?: $settings['default_work_filter']);
         $activeOnly = self::normalizeBooleanAttribute($atts['somente_ativas'], $settings['active_only'] === '1');
         $showSelector = self::normalizeBooleanAttribute($atts['seletor'], $settings['show_selector'] === '1');
+        $refreshSeconds = $atts['refresh'] === ''
+            ? (int) $settings['refresh_seconds']
+            : max(0, min(3600, absint($atts['refresh'])));
 
         return sprintf(
-            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-active-only="%s" data-show-selector="%s"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
+            '<div class="fxtao-public-map-shell" data-tenant="%s" data-work="%s" data-active-only="%s" data-show-selector="%s" data-refresh-seconds="%d"><div class="fxtao-public-map-toolbar"><select class="fxtao-public-map__select" aria-label="Selecionar obra"></select></div><div class="fxtao-public-map" style="height:%s"><div class="fxtao-public-map__status">Carregando obras...</div></div></div>',
             esc_attr($tenant),
             esc_attr($workFilter),
             $activeOnly ? '1' : '0',
             $showSelector ? '1' : '0',
+            $refreshSeconds,
             esc_attr($height)
         );
     }
@@ -182,6 +196,7 @@ final class FXTAO_Public_Map_Plugin
         $tenantSlug = sanitize_title($request->get_param('tenant') ?: $settings['tenant_slug']);
         $workFilter = sanitize_text_field($request->get_param('obra') ?: $settings['default_work_filter']);
         $activeOnly = self::normalizeBooleanAttribute($request->get_param('active_only'), $settings['active_only'] === '1');
+        $fresh = self::normalizeBooleanAttribute($request->get_param('fresh'), false);
 
         if (empty($settings['api_base_url']) || empty($tenantSlug) || empty($settings['bearer_token'])) {
             return new WP_REST_Response([
@@ -191,8 +206,8 @@ final class FXTAO_Public_Map_Plugin
         }
 
         $cacheKey = 'fxtao_public_map_' . md5($settings['api_base_url'] . '|' . $tenantSlug);
-        $cachedPayload = get_transient($cacheKey);
-        if (is_array($cachedPayload)) {
+        $cachedPayload = $fresh ? false : get_transient($cacheKey);
+        if (!$fresh && is_array($cachedPayload)) {
             return new WP_REST_Response(self::filterPayload($cachedPayload, $workFilter, $activeOnly), 200);
         }
 
@@ -221,7 +236,7 @@ final class FXTAO_Public_Map_Plugin
             ], 502);
         }
 
-        if ($statusCode >= 200 && $statusCode < 300 && (int) $settings['cache_seconds'] > 0) {
+        if (!$fresh && $statusCode >= 200 && $statusCode < 300 && (int) $settings['cache_seconds'] > 0) {
             set_transient($cacheKey, $body, (int) $settings['cache_seconds']);
         }
 
@@ -246,6 +261,7 @@ final class FXTAO_Public_Map_Plugin
             'default_longitude' => '-46.63331',
             'default_zoom' => 11,
             'cache_seconds' => 300,
+            'refresh_seconds' => 60,
         ];
     }
 

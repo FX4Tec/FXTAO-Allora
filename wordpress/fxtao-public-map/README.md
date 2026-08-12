@@ -29,6 +29,7 @@ Preencha:
 - `Bearer token`: token da integração `Mapa público de obras`.
 - `Mostrar somente obras ativas`: recomendado manter marcado.
 - `Exibir seletor de obras`: mostra uma lista para alternar entre obras no componente.
+- `Refresh automático em segundos`: recarrega os dados do mapa sem atualizar a página; use `0` para desativar.
 
 ## Shortcodes
 
@@ -48,6 +49,18 @@ Mapa apontando explicitamente para um cliente:
 
 ```text
 [fxtao_public_map cliente="cinci" seletor="true"]
+```
+
+Mapa sem seletor, exibindo somente os marcadores:
+
+```text
+[fxtao_public_map cliente="cinci" seletor="false"]
+```
+
+Mapa sem seletor e com refresh a cada 60 segundos:
+
+```text
+[fxtao_public_map cliente="cinci" seletor="false" refresh="60"]
 ```
 
 Altura customizada:

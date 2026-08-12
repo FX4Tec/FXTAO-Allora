@@ -45,6 +45,8 @@
         if (tenant) endpoint.searchParams.set('tenant', tenant);
         if (work) endpoint.searchParams.set('obra', work);
         endpoint.searchParams.set('active_only', shell.dataset.activeOnly === '1' ? '1' : '0');
+        endpoint.searchParams.set('fresh', '1');
+        endpoint.searchParams.set('_ts', String(Date.now()));
 
         return endpoint.toString();
     };
@@ -83,8 +85,11 @@
     };
 
     const populateSelector = (shell, works, map, status) => {
+        const toolbar = shell.querySelector('.fxtao-public-map-toolbar');
         const select = shell.querySelector('.fxtao-public-map__select');
         const shouldShow = shell.dataset.showSelector === '1' && works.length > 1;
+        const selectedBeforeRefresh = select.value;
+        if (toolbar) toolbar.hidden = !shouldShow;
         select.hidden = !shouldShow;
         select.innerHTML = '';
 
@@ -102,14 +107,42 @@
             select.appendChild(option);
         });
 
-        select.addEventListener('change', () => {
+        if (selectedBeforeRefresh && works.some((obra) => workIdentifier(obra) === selectedBeforeRefresh)) {
+            select.value = selectedBeforeRefresh;
+        }
+
+        select.onchange = () => {
             const selected = select.value;
             renderMarkers(
                 map,
                 selected ? works.filter((obra) => workIdentifier(obra) === selected) : works,
                 status
             );
-        });
+        };
+    };
+
+    const loadWorks = async (shell, map, status) => {
+        try {
+            const response = await fetch(buildEndpoint(shell), {
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Falha ao carregar obras.');
+            }
+
+            const works = Array.isArray(payload.data) ? payload.data : [];
+            populateSelector(shell, works, map, status);
+            const select = shell.querySelector('.fxtao-public-map__select');
+            renderMarkers(
+                map,
+                select && select.value ? works.filter((obra) => workIdentifier(obra) === select.value) : works,
+                status
+            );
+        } catch (error) {
+            status.hidden = false;
+            status.textContent = error.message || 'Falha ao carregar o mapa.';
+        }
     };
 
     const initMap = async (shell) => {
@@ -125,21 +158,11 @@
             maxZoom: 19,
         }).addTo(map);
 
-        try {
-            const response = await fetch(buildEndpoint(shell), {
-                headers: { Accept: 'application/json' },
-            });
-            const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error(payload.message || 'Falha ao carregar obras.');
-            }
+        await loadWorks(shell, map, status);
 
-            const works = Array.isArray(payload.data) ? payload.data : [];
-            populateSelector(shell, works, map, status);
-            renderMarkers(map, works, status);
-        } catch (error) {
-            status.hidden = false;
-            status.textContent = error.message || 'Falha ao carregar o mapa.';
+        const refreshSeconds = Number(shell.dataset.refreshSeconds || 0);
+        if (Number.isFinite(refreshSeconds) && refreshSeconds > 0) {
+            window.setInterval(() => loadWorks(shell, map, status), refreshSeconds * 1000);
         }
     };
 

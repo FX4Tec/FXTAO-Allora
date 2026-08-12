@@ -22,6 +22,7 @@ const {
     REGISTRATION_TYPES,
     LIFECYCLE_STATUSES,
 } = require('../services/taoSiengeService');
+const { invalidatePublicMapCache } = require('../services/publicMapService');
 
 
 const MANAGED_CONTACT_ROLES = [
@@ -36,6 +37,10 @@ const MANAGED_TEAM_MEMBER_ROLES = [
     'Engº Responsavel',
     'Mestre de Obra',
 ];
+
+const invalidateTenantPublicMapCache = (req) => {
+    invalidatePublicMapCache(req?.tenant?.slug || null);
+};
 
 const TAO_DATE_FIELDS = [
     'opening_date',
@@ -1334,6 +1339,7 @@ exports.create = async (req, res) => {
             return loaded;
         });
 
+        invalidateTenantPublicMapCache(req);
         res.status(201).json(sanitizeTaoResponse(tao, user));
     } catch (error) {
         console.error('Failed to create TAO:', error);
@@ -1531,6 +1537,7 @@ exports.update = async (req, res) => {
             return loaded;
         });
 
+        invalidateTenantPublicMapCache(req);
         res.status(200).json(sanitizeTaoResponse(tao, user));
     } catch (error) {
         console.error('Failed to update TAO:', error);
@@ -1547,6 +1554,7 @@ exports.delete = async (req, res) => {
         }
         const { id } = req.params;
         await prisma.tao.delete({ where: { id } });
+        invalidateTenantPublicMapCache(req);
         res.status(204).send();
     } catch (error) {
         console.error('Failed to delete TAO:', error);
@@ -1631,6 +1639,7 @@ exports.decideApproval = async (req, res) => {
             return transaction.tao.findUnique({ where: { id: current.id }, include: TAO_INCLUDE });
         });
 
+        invalidateTenantPublicMapCache(req);
         return res.status(200).json(sanitizeTaoResponse(tao, user));
     } catch (error) {
         console.error('Failed to decide TAO approval:', error);
