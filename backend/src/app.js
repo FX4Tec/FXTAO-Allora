@@ -20,7 +20,10 @@ app.set('trust proxy', 'loopback');
 
 app.use(requestId);
 app.use(helmetMiddleware);
-app.use(corsMiddleware);
+app.use((req, res, next) => {
+  if (String(req.path || '').startsWith('/api/public/')) return next();
+  return corsMiddleware(req, res, next);
+});
 app.use('/api', globalApiLimiter);
 
 const requestBodyLimit = process.env.REQUEST_BODY_LIMIT || '10mb';
@@ -38,6 +41,7 @@ app.use('/api/v1/integrations', integrationRoutes);
 app.use('/api/v1/integration-admin', integrationAdminRoutes);
 app.use('/api/v1/tao-transfer', taoTransferRoutes);
 app.use('/api/v1/sharepoint', require('./routes/sharepointRoutes'));
+app.use('/api/public', require('./routes/publicMapRoutes'));
 app.use('/uploads', express.static('uploads'));
 app.use('/api/v1/resources', require('./routes/resourceRoutes'));
 app.use('/api/v1/uploads', uploadLimiter, require('./routes/uploadRoutes'));

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Loader2, MapPin, Navigation } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useAuth } from '@/lib/AuthContext';
 
 // Fix for default leaflet marker icons logic
 delete L.Icon.Default.prototype._getIconUrl;
@@ -52,8 +53,11 @@ const parseCoordinate = (value) => {
 };
 
 export default function Heatmap() {
+  const { user, assistedTenant } = useAuth();
+  const tenantScope = assistedTenant?.slug || window.location.hostname || 'direct';
+
   const { data: taos, isLoading } = useQuery({
-    queryKey: ['taos-map'],
+    queryKey: ['taos-map', tenantScope],
     queryFn: async () => {
       // Fetch with high limit to ensure all markers are shown
       const res = await api.get('/taos', {
@@ -66,6 +70,7 @@ export default function Heatmap() {
       }
       return Array.isArray(data) ? data : [];
     },
+    enabled: Boolean(user),
   });
 
   const taosWithLocation = (taos || [])

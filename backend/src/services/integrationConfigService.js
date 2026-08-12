@@ -3,6 +3,7 @@ const crypto = require('crypto');
 
 
 const ALL_SCOPES = ['works.read', 'financial.read', 'team.read', 'lookup.read'];
+const PUBLIC_MAP_SCOPES = ['public-map.read'];
 const IP_FILTER_KEY = 'integration_ip_filter_enabled';
 const CLIENT_KEY_PREFIX = 'integration_client_';
 
@@ -21,6 +22,11 @@ const INTEGRATION_CLIENTS = {
         key: 'generic',
         label: 'Generico',
         scopes: ALL_SCOPES,
+    },
+    public_map: {
+        key: 'public_map',
+        label: 'Mapa publico de obras',
+        scopes: PUBLIC_MAP_SCOPES,
     },
 };
 
@@ -81,7 +87,7 @@ const sanitizeClientForApi = (client) => ({
     label: client.label,
     active: Boolean(client.active),
     allowedIps: normalizeIpList(client.allowedIps),
-    scopes: Array.isArray(client.scopes) && client.scopes.length ? client.scopes : [...ALL_SCOPES],
+    scopes: Array.isArray(client.scopes) && client.scopes.length ? client.scopes : [...buildDefaultClientState(client.key).scopes],
     hasToken: Boolean(client.tokenHash),
     tokenPreview: client.tokenPreview || null,
     lastRotatedAt: client.lastRotatedAt || null,
@@ -146,7 +152,7 @@ const serializeClientState = (client) =>
     JSON.stringify({
         active: Boolean(client.active),
         allowedIps: normalizeIpList(client.allowedIps),
-        scopes: Array.isArray(client.scopes) && client.scopes.length ? client.scopes : [...ALL_SCOPES],
+        scopes: Array.isArray(client.scopes) && client.scopes.length ? client.scopes : [...buildDefaultClientState(client.key).scopes],
         tokenHash: client.tokenHash || null,
         tokenPreview: client.tokenPreview || null,
         lastRotatedAt: client.lastRotatedAt || null,
