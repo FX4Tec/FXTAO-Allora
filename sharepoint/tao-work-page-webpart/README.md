@@ -38,13 +38,15 @@ Web Part SPFx/React para apresentar, em cada página de obra do SharePoint, os d
 - `startDate`
 - `endDate`
 
-## Registro de aplicativo Entra ID
+## Registro de aplicativo Entra ID e configuração SaaS
 
 1. Criar/selecionar um registro para a API com nome de exibição `FX TAO API`.
 2. Em **Expose an API**, definir o Application ID URI e criar o escopo delegado `access_as_user`.
 3. Configurar a versão de token de acesso como 2 no manifesto do aplicativo.
-4. Definir no backend `MICROSOFT_TENANT_ID` e `SHAREPOINT_API_AUDIENCE` com a audiência emitida no token.
-5. Opcionalmente restringir o `azp`/`appid` em `SHAREPOINT_ALLOWED_CLIENT_IDS`.
+4. No FXTAO SaaS, acessar o cliente correto em **Configurações > Webpart SharePoint FXTAO**.
+5. Informar **Tenant ID Microsoft**, **Client ID da API**, **Application ID URI**, escopo `access_as_user` e a origem SharePoint permitida, por exemplo `https://cincieng.sharepoint.com`.
+6. Habilitar a integração e salvar.
+7. Opcionalmente restringir o `azp`/`appid` em **Client IDs autorizados a chamar a API**.
 
 Nenhum segredo de cliente é armazenado na Web Part. O SPFx obtém o token delegado por meio de `AadHttpClient`.
 

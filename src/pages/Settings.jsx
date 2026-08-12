@@ -32,6 +32,15 @@ export default function Settings() {
       is_enabled: false,
       has_client_secret: false,
     },
+    sharepoint_webpart: {
+      authority_tenant_id: '',
+      api_client_id: '',
+      api_resource_uri: '',
+      required_scope: 'access_as_user',
+      allowed_origins: '',
+      allowed_client_ids: '',
+      is_enabled: false,
+    },
   });
 
   // Fetch System Configs
@@ -66,6 +75,7 @@ export default function Settings() {
     if (!saasTenantSettings?.tenant) return;
 
     const sso = saasTenantSettings.microsoft_sso || {};
+    const sharepoint = saasTenantSettings.sharepoint_webpart || {};
     setTenantSettings({
       primary_domain: saasTenantSettings.tenant.primary_domain || '',
       app_subdomain: saasTenantSettings.tenant.app_subdomain || '',
@@ -79,6 +89,15 @@ export default function Settings() {
         allowed_domains: (sso.allowed_domains || []).join(', '),
         is_enabled: Boolean(sso.is_enabled),
         has_client_secret: Boolean(sso.has_client_secret),
+      },
+      sharepoint_webpart: {
+        authority_tenant_id: sharepoint.authority_tenant_id || '',
+        api_client_id: sharepoint.api_client_id || '',
+        api_resource_uri: sharepoint.api_resource_uri || '',
+        required_scope: sharepoint.required_scope || 'access_as_user',
+        allowed_origins: (sharepoint.allowed_origins || []).join(', '),
+        allowed_client_ids: (sharepoint.allowed_client_ids || []).join(', '),
+        is_enabled: Boolean(sharepoint.is_enabled),
       },
     });
   }, [saasTenantSettings]);
@@ -110,6 +129,7 @@ export default function Settings() {
       microsoft_login_enabled: tenantSettings.microsoft_login_enabled,
       branding_logo_url: clientLogoUrl,
       microsoft_sso: tenantSettings.microsoft_sso,
+      sharepoint_webpart: tenantSettings.sharepoint_webpart,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries(['saasTenantSettings']);
@@ -128,6 +148,13 @@ export default function Settings() {
     setTenantSettings(prev => ({
       ...prev,
       microsoft_sso: { ...prev.microsoft_sso, [key]: value },
+    }));
+  };
+
+  const updateSharepointSetting = (key, value) => {
+    setTenantSettings(prev => ({
+      ...prev,
+      sharepoint_webpart: { ...prev.sharepoint_webpart, [key]: value },
     }));
   };
 
@@ -597,6 +624,92 @@ export default function Settings() {
             <Button className="ml-auto bg-blue-700 hover:bg-blue-800" onClick={() => tenantSettingsMutation.mutate()} disabled={tenantSettingsMutation.isPending}>
               <Save className="w-4 h-4 mr-2" />
               {tenantSettingsMutation.isPending ? 'Salvando...' : 'Salvar Acesso e SSO'}
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="border-indigo-100 shadow-sm md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-indigo-800">
+              <KeyRound className="w-5 h-5" />
+              Webpart SharePoint FXTAO
+            </CardTitle>
+            <CardDescription>
+              Configure a API Entra ID e as origens SharePoint autorizadas para este cliente, mantendo segregação por tenant.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={tenantSettings.sharepoint_webpart.is_enabled}
+                onChange={(e) => updateSharepointSetting('is_enabled', e.target.checked)}
+              />
+              Integração da webpart habilitada
+            </label>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Tenant ID Microsoft da webpart</Label>
+                <Input
+                  placeholder="Directory (tenant) ID"
+                  value={tenantSettings.sharepoint_webpart.authority_tenant_id}
+                  onChange={(e) => updateSharepointSetting('authority_tenant_id', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Client ID da API FX TAO</Label>
+                <Input
+                  placeholder="Application (client) ID"
+                  value={tenantSettings.sharepoint_webpart.api_client_id}
+                  onChange={(e) => updateSharepointSetting('api_client_id', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Application ID URI</Label>
+                <Input
+                  placeholder="api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={tenantSettings.sharepoint_webpart.api_resource_uri}
+                  onChange={(e) => updateSharepointSetting('api_resource_uri', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Use exatamente este valor no campo “URI do recurso Entra ID” da webpart.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Escopo exigido</Label>
+                <Input
+                  placeholder="access_as_user"
+                  value={tenantSettings.sharepoint_webpart.required_scope}
+                  onChange={(e) => updateSharepointSetting('required_scope', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Origens SharePoint permitidas</Label>
+                <Input
+                  placeholder="https://cincieng.sharepoint.com"
+                  value={tenantSettings.sharepoint_webpart.allowed_origins}
+                  onChange={(e) => updateSharepointSetting('allowed_origins', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Separe por vírgula. A origem precisa ser o domínio raiz do SharePoint, sem caminho.</p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Client IDs autorizados a chamar a API</Label>
+                <Input
+                  placeholder="Opcional. Deixe vazio para aceitar o cliente SPFx aprovado pelo SharePoint."
+                  value={tenantSettings.sharepoint_webpart.allowed_client_ids}
+                  onChange={(e) => updateSharepointSetting('allowed_client_ids', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Use apenas se quiser restringir chamadas a client IDs específicos enviados no token.</p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900">
+              Na webpart, use <strong>URL base da API FX TAO</strong> como <code>https://fxtao.fx4.com.br</code> e o <strong>Application ID URI</strong> configurado acima.
+            </div>
+          </CardContent>
+          <CardFooter className="bg-slate-50 border-t border-slate-100">
+            <Button className="ml-auto bg-indigo-700 hover:bg-indigo-800" onClick={() => tenantSettingsMutation.mutate()} disabled={tenantSettingsMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" />
+              {tenantSettingsMutation.isPending ? 'Salvando...' : 'Salvar Webpart SharePoint'}
             </Button>
           </CardFooter>
         </Card>

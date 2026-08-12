@@ -842,6 +842,7 @@ model SaasTenant {
 
   domains            SaasTenantDomain[]
   sso_configs        SaasSsoConfig[]
+  sharepoint_configs SaasSharepointConfig[]
   audit_logs         SaasAuditLog[]
 
   @@map("saas_tenants")
@@ -913,6 +914,27 @@ model SaasSsoConfig {
 
   @@index([tenant_id])
   @@map("saas_sso_configs")
+}
+
+model SaasSharepointConfig {
+  id                  String     @id @default(uuid())
+  tenant_id           String
+  tenant              SaasTenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  authority_tenant_id String?
+  api_client_id       String?
+  api_resource_uri    String?
+  required_scope      String     @default("access_as_user")
+  allowed_origins     String[]   @default([])
+  allowed_client_ids  String[]   @default([])
+  is_enabled          Boolean    @default(false)
+  last_tested_at      DateTime?
+  last_test_status    String?
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+
+  @@index([tenant_id])
+  @@index([authority_tenant_id])
+  @@map("saas_sharepoint_configs")
 }
 
 model SaasAuditLog {

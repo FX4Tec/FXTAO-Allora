@@ -47,6 +47,7 @@ const sanitizeTenant = (tenant) => {
     const {
         database_url,
         sso_configs,
+        sharepoint_configs,
         ...safeTenant
     } = tenant;
 
@@ -61,6 +62,9 @@ const sanitizeTenant = (tenant) => {
                     has_client_secret: Boolean(client_secret_encrypted),
                 };
             })
+            : undefined,
+        sharepoint_configs: Array.isArray(sharepoint_configs)
+            ? sharepoint_configs
             : undefined,
     };
 };
@@ -93,7 +97,7 @@ const ensureBootstrapTenant = async () => {
             id: crypto.randomUUID(),
             ...payload,
         },
-        include: { domains: true, sso_configs: true },
+        include: { domains: true, sso_configs: true, sharepoint_configs: true },
     });
 
     if (payload.primary_domain) {
@@ -118,7 +122,7 @@ const ensureBootstrapTenant = async () => {
 
     return prisma.saasTenant.findUnique({
         where: { id: tenant.id },
-        include: { domains: true, sso_configs: true },
+        include: { domains: true, sso_configs: true, sharepoint_configs: true },
     });
 };
 
@@ -129,7 +133,7 @@ const findTenantByHost = async (host) => {
     try {
         const domain = await prisma.saasTenantDomain.findUnique({
             where: { hostname },
-            include: { tenant: { include: { domains: true, sso_configs: true } } },
+            include: { tenant: { include: { domains: true, sso_configs: true, sharepoint_configs: true } } },
         });
 
         if (domain?.tenant) return { ...domain.tenant, source: 'catalog' };
@@ -141,7 +145,7 @@ const findTenantByHost = async (host) => {
                     { app_subdomain: hostname },
                 ],
             },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         return tenant ? { ...tenant, source: 'catalog' } : fallbackTenant();
@@ -165,7 +169,7 @@ const findTenantBySlugOrHost = async (value) => {
                     { domains: { some: { hostname: normalized } } },
                 ],
             },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         return tenant ? { ...tenant, source: 'catalog' } : null;
@@ -178,7 +182,7 @@ const findTenantBySlugOrHost = async (value) => {
 const safeListTenants = async () => {
     try {
         return await prisma.saasTenant.findMany({
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
             orderBy: { display_name: 'asc' },
         });
     } catch (error) {

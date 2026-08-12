@@ -24,6 +24,11 @@ const resolveTenant = async (req) => {
 
 const tenantDatabaseMiddleware = async (req, res, next) => {
     try {
+        if (req.sharepointTenant?.database_url) {
+            req.tenant = req.sharepointTenant;
+            return runWithTenantDatabase(req.sharepointTenant, next);
+        }
+
         const tenant = await resolveTenant(req);
         if (!tenant?.database_url) {
             return next();

@@ -58,6 +58,48 @@ const normalizeAllowedDomains = (value) => {
         .filter(Boolean)));
 };
 
+const normalizeOrigin = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+        const url = raw.includes('://') ? new URL(raw) : new URL(`https://${raw}`);
+        return `${url.protocol}//${url.hostname}`.toLowerCase();
+    } catch (error) {
+        return raw.replace(/\/$/, '').toLowerCase();
+    }
+};
+
+const normalizeCsvList = (value, normalizer = (item) => String(item || '').trim()) => {
+    const items = Array.isArray(value) ? value : String(value || '').split(',');
+    return Array.from(new Set(items.map(normalizer).filter(Boolean)));
+};
+
+const sharepointConfigFromTenant = (tenant) => {
+    const configs = Array.isArray(tenant?.sharepoint_configs) ? tenant.sharepoint_configs : [];
+    return configs[0] || null;
+};
+
+const publicSharepointConfig = (config) => config ? {
+    id: config.id,
+    authority_tenant_id: config.authority_tenant_id || '',
+    api_client_id: config.api_client_id || '',
+    api_resource_uri: config.api_resource_uri || '',
+    required_scope: config.required_scope || 'access_as_user',
+    allowed_origins: config.allowed_origins || [],
+    allowed_client_ids: config.allowed_client_ids || [],
+    is_enabled: Boolean(config.is_enabled),
+    last_tested_at: config.last_tested_at || null,
+    last_test_status: config.last_test_status || null,
+} : {
+    authority_tenant_id: '',
+    api_client_id: '',
+    api_resource_uri: '',
+    required_scope: 'access_as_user',
+    allowed_origins: [],
+    allowed_client_ids: [],
+    is_enabled: false,
+};
+
 const resolveManageableTenant = async (req, res) => {
     const assistedSlug = req.headers['x-fx4-tenant-slug'] || req.headers['x-tenant-slug'];
 
@@ -77,7 +119,7 @@ const resolveManageableTenant = async (req, res) => {
     const tokenTenant = req.tokenTenantId
         ? await prisma.saasTenant.findUnique({
             where: { id: req.tokenTenantId },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         })
         : null;
     const tenant = req.tenant?.id ? req.tenant : tokenTenant;
@@ -152,6 +194,7 @@ const tenantSettingsResponse = (tenant) => ({
         is_enabled: false,
         has_client_secret: false,
     },
+    sharepoint_webpart: publicSharepointConfig(sharepointConfigFromTenant(tenant)),
 });
 
 exports.context = async (req, res) => {
@@ -261,7 +304,7 @@ exports.createTenant = async (req, res) => {
                     },
                 } : undefined,
             },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         await writeAuditLog({
@@ -292,7 +335,7 @@ exports.updateTenant = async (req, res) => {
         const { id } = req.params;
         const existing = await prisma.saasTenant.findUnique({
             where: { id },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         if (!existing) {
@@ -334,7 +377,7 @@ exports.updateTenant = async (req, res) => {
         const tenant = await prisma.saasTenant.update({
             where: { id },
             data,
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         if (data.primary_domain) {
@@ -393,7 +436,7 @@ exports.getTenantSettings = async (req, res) => {
     try {
         const tenant = await prisma.saasTenant.findUnique({
             where: { id: context.tenant.id },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         if (!tenant) return res.status(404).json({ error: 'Tenant não encontrado.' });
@@ -410,7 +453,7 @@ exports.updateTenantSettings = async (req, res) => {
     try {
         const existing = await prisma.saasTenant.findUnique({
             where: { id: context.tenant.id },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         if (!existing) return res.status(404).json({ error: 'Tenant não encontrado.' });
@@ -422,6 +465,7 @@ exports.updateTenantSettings = async (req, res) => {
             local_login_enabled,
             microsoft_login_enabled,
             microsoft_sso,
+            sharepoint_webpart,
         } = req.body;
 
         const tenantData = {};
@@ -434,7 +478,7 @@ exports.updateTenantSettings = async (req, res) => {
         const tenant = await prisma.saasTenant.update({
             where: { id: existing.id },
             data: tenantData,
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         const domainCandidates = [
@@ -498,9 +542,50 @@ exports.updateTenantSettings = async (req, res) => {
             });
         }
 
+        if (sharepoint_webpart) {
+            const currentConfig = sharepointConfigFromTenant(existing);
+            const isEnabled = Boolean(sharepoint_webpart.is_enabled);
+            const apiClientId = String(sharepoint_webpart.api_client_id || '').trim();
+            const apiResourceUri = String(sharepoint_webpart.api_resource_uri || '').trim();
+            const authorityTenantId = String(sharepoint_webpart.authority_tenant_id || '').trim();
+            const requiredScope = String(sharepoint_webpart.required_scope || 'access_as_user').trim() || 'access_as_user';
+            const allowedOrigins = normalizeCsvList(sharepoint_webpart.allowed_origins, normalizeOrigin);
+            const allowedClientIds = normalizeCsvList(sharepoint_webpart.allowed_client_ids);
+
+            if (isEnabled && (!authorityTenantId || !apiResourceUri || !allowedOrigins.length)) {
+                return res.status(400).json({
+                    error: 'Para habilitar a webpart SharePoint, informe Tenant ID, Application ID URI e ao menos uma origem SharePoint permitida.',
+                });
+            }
+
+            await prisma.saasSharepointConfig.upsert({
+                where: { id: currentConfig?.id || crypto.randomUUID() },
+                update: {
+                    authority_tenant_id: authorityTenantId || null,
+                    api_client_id: apiClientId || null,
+                    api_resource_uri: apiResourceUri || null,
+                    required_scope: requiredScope,
+                    allowed_origins: allowedOrigins,
+                    allowed_client_ids: allowedClientIds,
+                    is_enabled: isEnabled,
+                },
+                create: {
+                    id: currentConfig?.id || crypto.randomUUID(),
+                    tenant_id: tenant.id,
+                    authority_tenant_id: authorityTenantId || null,
+                    api_client_id: apiClientId || null,
+                    api_resource_uri: apiResourceUri || null,
+                    required_scope: requiredScope,
+                    allowed_origins: allowedOrigins,
+                    allowed_client_ids: allowedClientIds,
+                    is_enabled: isEnabled,
+                },
+            });
+        }
+
         const updated = await prisma.saasTenant.findUnique({
             where: { id: tenant.id },
-            include: { domains: true, sso_configs: true },
+            include: { domains: true, sso_configs: true, sharepoint_configs: true },
         });
 
         await writeAuditLog({
@@ -519,6 +604,7 @@ exports.updateTenantSettings = async (req, res) => {
                 app_subdomain: updated.app_subdomain,
                 microsoft_login_enabled: updated.microsoft_login_enabled,
                 sso_enabled: microsoftConfigFromTenant(updated)?.is_enabled || false,
+                sharepoint_enabled: sharepointConfigFromTenant(updated)?.is_enabled || false,
             },
         });
 

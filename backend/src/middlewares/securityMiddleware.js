@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { catalogPrisma } = require('../services/prismaService');
 
 const splitCsv = (value) => String(value || '')
     .split(',')
@@ -32,6 +33,27 @@ const originMatchesAllowedSuffix = (origin) => {
     }
 };
 
+const originMatchesSharepointConfig = async (origin) => {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) return false;
+
+    try {
+        const config = await catalogPrisma.saasSharepointConfig.findFirst({
+            where: {
+                is_enabled: true,
+                allowed_origins: { has: normalizedOrigin },
+                tenant: { operational_status: 'active' },
+            },
+            select: { id: true },
+        });
+        return Boolean(config);
+    } catch (error) {
+        if (['P2021', 'P2022'].includes(error?.code)) return false;
+        console.error('Failed to check SharePoint CORS origin:', error.message);
+        return false;
+    }
+};
+
 const requestId = (req, res, next) => {
     const existingId = req.headers['x-request-id'];
     req.id = existingId || crypto.randomUUID();
@@ -41,7 +63,7 @@ const requestId = (req, res, next) => {
 
 const corsMiddleware = cors({
     credentials: true,
-    origin(origin, callback) {
+    async origin(origin, callback) {
         if (!origin) return callback(null, true);
 
         const allowedOrigins = configuredOrigins();
@@ -54,6 +76,10 @@ const corsMiddleware = cors({
         }
 
         if (originMatchesAllowedSuffix(origin)) {
+            return callback(null, true);
+        }
+
+        if (await originMatchesSharepointConfig(origin)) {
             return callback(null, true);
         }
 

@@ -99,10 +99,13 @@ export default function PluginDownloadsGuide() {
               <div>
                 <p className="mb-2 text-sm font-semibold text-slate-900">2. Permissões Microsoft 365 / API</p>
                 <StepList steps={[
+                  'No FXTAO SaaS, entre no cliente correto pelo acesso assistido e abra Configurações > Webpart SharePoint FXTAO.',
+                  'Preencha Tenant ID Microsoft, Client ID da API, Application ID URI, escopo access_as_user e a origem SharePoint permitida.',
+                  'Salve e habilite a integração apenas após confirmar que a origem está correta, por exemplo https://cincieng.sharepoint.com.',
                   'No SharePoint Admin Center, acesse Advanced > API access.',
                   'Aprove a permissão exibida para a API FX TAO, normalmente FX TAO API / access_as_user.',
                   'Confirme no Microsoft Entra que o aplicativo usado pela API FXTAO aceita tokens do tenant correto.',
-                  'Valide que a URL do FXTAO SaaS do cliente está em HTTPS e autorizada nas configurações de SSO/API.',
+                  'Valide que a URL do FXTAO SaaS do cliente está em HTTPS e autorizada nas configurações da webpart.',
                 ]} />
               </div>
               <div>
