@@ -126,6 +126,20 @@ const tenantResponse = async (tenant) => ({
     stats: await tenantStats(tenant),
 });
 
+const publicTenantContext = (tenant) => {
+    const safeTenant = sanitizeTenant(tenant);
+    if (!safeTenant) return null;
+
+    const {
+        database_label,
+        has_database_url,
+        sso_configs,
+        ...publicTenant
+    } = safeTenant;
+
+    return publicTenant;
+};
+
 const tenantSettingsResponse = (tenant) => ({
     tenant: sanitizeTenant(tenant),
     microsoft_sso: publicSsoConfig(microsoftConfigFromTenant(tenant)) || {
@@ -141,7 +155,7 @@ const tenantSettingsResponse = (tenant) => ({
 
 exports.context = async (req, res) => {
     res.json({
-        tenant: sanitizeTenant(req.tenant),
+        tenant: publicTenantContext(req.tenant),
         strategy: 'database_per_tenant',
         isolation: 'Banco separado por cliente. A base atual está registrada como tenant Engetec.',
     });
