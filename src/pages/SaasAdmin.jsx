@@ -196,7 +196,7 @@ export default function SaasAdmin() {
             <p className="text-sm text-slate-500">Cadastre ou atualize o tenant comercial da plataforma.</p>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="allora" /></div>
+            <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="cliente" /></div>
             <div><Label>Razão social</Label><Input value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} /></div>
             <div><Label>Nome fantasia</Label><Input value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} /></div>
             <div>
@@ -207,7 +207,7 @@ export default function SaasAdmin() {
                 <option value="enterprise">Corporativo</option>
               </select>
             </div>
-            <div><Label>Domínio principal</Label><Input value={form.primary_domain || ''} onChange={(e) => setForm({ ...form, primary_domain: e.target.value })} placeholder="tao.cliente.com.br" /></div>
+            <div><Label>Domínio principal</Label><Input value={form.primary_domain || ''} onChange={(e) => setForm({ ...form, primary_domain: e.target.value })} placeholder="cliente.fxtao.fx4.com.br" /></div>
             <div>
               <Label>Situação</Label>
               <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={form.operational_status} onChange={(e) => setForm({ ...form, operational_status: e.target.value })}>
@@ -239,7 +239,7 @@ export default function SaasAdmin() {
                   <Input
                     value={form.database_label}
                     onChange={(e) => setForm({ ...form, database_label: e.target.value })}
-                    placeholder={form.slug ? `tenant_${form.slug.trim().toLowerCase()}` : 'tenant_seiji'}
+                    placeholder={form.slug ? `tenant_${form.slug.trim().toLowerCase()}` : 'tenant_cliente'}
                   />
                   <p className="mt-1 text-xs text-slate-500">Usado como nome do DB no provisionamento automático.</p>
                 </div>
@@ -253,7 +253,7 @@ export default function SaasAdmin() {
                     <Input
                       value={form.database_url}
                       onChange={(e) => setForm({ ...form, database_url: e.target.value })}
-                      placeholder="postgresql://usuario:senha@host:5432/tenant_seiji?schema=public"
+                      placeholder="postgresql://usuario:senha@host:5432/tenant_cliente?schema=public"
                     />
                     <p className="mt-1 text-xs text-amber-700">Será gravada no catálogo central; use apenas URL do banco deste cliente.</p>
                   </div>

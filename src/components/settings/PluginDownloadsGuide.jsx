@@ -101,7 +101,7 @@ export default function PluginDownloadsGuide() {
                 <StepList steps={[
                   'No FXTAO SaaS, entre no cliente correto pelo acesso assistido e abra Configurações > Webpart SharePoint FXTAO.',
                   'Preencha Tenant ID Microsoft, Client ID da API, Application ID URI, escopo access_as_user e a origem SharePoint permitida.',
-                  'Salve e habilite a integração apenas após confirmar que a origem está correta, por exemplo https://cincieng.sharepoint.com.',
+                  'Salve e habilite a integração apenas após confirmar que a origem está correta, por exemplo https://empresa.sharepoint.com.',
                   'No SharePoint Admin Center, acesse Advanced > API access.',
                   'Aprove a permissão exibida para a API FX TAO, normalmente FX TAO API / access_as_user.',
                   'Confirme no Microsoft Entra que o aplicativo usado pela API FXTAO aceita tokens do tenant correto.',
@@ -137,7 +137,7 @@ export default function PluginDownloadsGuide() {
                 <p className="mb-2 text-sm font-semibold text-slate-900">2. Configuração de conexão</p>
                 <StepList steps={[
                   'Em URL base da API, informe https://fxtao.fx4.com.br/api/public.',
-                  'Em ID/slug do cliente, informe o slug do tenant SaaS, por exemplo cinci, allora ou cymz.',
+                  'Em ID/slug do cliente, informe o slug cadastrado no SaaS, por exemplo cliente.',
                   'Cole o Bearer token da integração Mapa público de obras do respectivo cliente.',
                   'Informe o Link do FXTAO, por exemplo https://fxtao.fx4.com.br.',
                   'Opcionalmente informe uma Obra padrão para exibir apenas uma obra na página.',
@@ -148,8 +148,8 @@ export default function PluginDownloadsGuide() {
                 <p className="mb-2 text-sm font-semibold text-slate-900">3. Inserção do componente nas páginas</p>
                 <div className="space-y-2 rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100">
                   <p>[fxtao_public_map]</p>
-                  <p>[fxtao_public_map obra="CASA ATLÂNTICA"]</p>
-                  <p>[fxtao_public_map cliente="cinci" fxtao_url="https://fxtao.fx4.com.br" seletor="true"]</p>
+                  <p>[fxtao_public_map obra="NOME DA OBRA"]</p>
+                  <p>[fxtao_public_map cliente="cliente" fxtao_url="https://fxtao.fx4.com.br" seletor="true"]</p>
                   <p>[fxtao_public_map height="640px"]</p>
                 </div>
               </div>
@@ -185,7 +185,7 @@ export default function PluginDownloadsGuide() {
                 <p className="mb-2 text-sm font-semibold text-slate-900">3. Configuração de conexão</p>
                 <StepList steps={[
                   'Em URL base da API, informe https://fxtao.fx4.com.br/api/public.',
-                  'Em Slug do cliente, informe o tenant SaaS, por exemplo cinci, allora, cymz ou seiji.',
+                  'Em Slug do cliente, informe o tenant SaaS, por exemplo cliente.',
                   'Em Obra padrão, informe ID, ERP, slug público ou nome da obra.',
                   'Cole o Bearer token da integração Gráfico público de evolução da obra.',
                   'Escolha o tipo de gráfico: barra horizontal, barras verticais ou resumo circular.',
@@ -196,8 +196,8 @@ export default function PluginDownloadsGuide() {
                 <p className="mb-2 text-sm font-semibold text-slate-900">4. Shortcodes</p>
                 <div className="space-y-2 rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100">
                   <p>[fxtao_progress_chart]</p>
-                  <p>[fxtao_progress_chart obra="APARTAMENTO LG"]</p>
-                  <p>[fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]</p>
+                  <p>[fxtao_progress_chart obra="NOME DA OBRA"]</p>
+                  <p>[fxtao_progress_chart cliente="cliente" obra="NOME DA OBRA" tipo="bar"]</p>
                   <p>[fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]</p>
                   <p>[fxtao_progress_chart tipo="donut" titulo="Resumo da Obra"]</p>
                 </div>

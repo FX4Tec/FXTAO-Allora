@@ -48,14 +48,36 @@ const loadTenantUser = async (req, tenant) => {
     });
 };
 
-const normalizeAllowedDomains = (value) => {
+const parseEmailAllowedDomains = (value) => {
     const items = Array.isArray(value)
         ? value
         : String(value || '').split(',');
+    const domainPattern = /^(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+    const invalid = [];
+    const domains = [];
 
-    return Array.from(new Set(items
-        .map((item) => normalizeHostname(item))
-        .filter(Boolean)));
+    for (const item of items) {
+        const raw = String(item || '').trim().toLowerCase();
+        if (!raw) continue;
+
+        const isInvalid = raw.includes('://')
+            || raw.includes('/')
+            || raw.includes(':')
+            || raw.includes('@')
+            || raw.includes('*')
+            || !domainPattern.test(raw);
+
+        if (isInvalid) {
+            invalid.push(raw);
+        } else {
+            domains.push(raw);
+        }
+    }
+
+    return {
+        domains: Array.from(new Set(domains)),
+        invalid: Array.from(new Set(invalid)),
+    };
 };
 
 const normalizeOrigin = (value) => {
@@ -511,10 +533,17 @@ exports.updateTenantSettings = async (req, res) => {
             const isEnabled = Boolean(microsoft_sso.is_enabled);
             const nextSecret = String(microsoft_sso.client_secret || '').trim();
             const hasSecret = Boolean(nextSecret || currentConfig?.client_secret_encrypted);
+            const parsedAllowedDomains = parseEmailAllowedDomains(microsoft_sso.allowed_domains);
 
             if (isEnabled && (!microsoft_sso.authority_tenant_id || !microsoft_sso.client_id || !hasSecret)) {
                 return res.status(400).json({
                     error: 'Para habilitar SSO Microsoft, informe Tenant ID, Client ID e Client Secret.',
+                });
+            }
+
+            if (parsedAllowedDomains.invalid.length) {
+                return res.status(400).json({
+                    error: `Domínio de e-mail permitido inválido: ${parsedAllowedDomains.invalid.join(', ')}. Informe apenas domínios como empresa.com.br, sem URL, caminho, e-mail ou curinga.`,
                 });
             }
 
@@ -525,7 +554,7 @@ exports.updateTenantSettings = async (req, res) => {
                     client_id: String(microsoft_sso.client_id || '').trim() || null,
                     client_secret_encrypted: nextSecret ? encryptSecret(nextSecret) : currentConfig?.client_secret_encrypted || null,
                     redirect_uri: String(microsoft_sso.redirect_uri || '').trim() || null,
-                    allowed_domains: normalizeAllowedDomains(microsoft_sso.allowed_domains),
+                    allowed_domains: parsedAllowedDomains.domains,
                     is_enabled: isEnabled,
                 },
                 create: {
@@ -536,7 +565,7 @@ exports.updateTenantSettings = async (req, res) => {
                     client_id: String(microsoft_sso.client_id || '').trim() || null,
                     client_secret_encrypted: nextSecret ? encryptSecret(nextSecret) : null,
                     redirect_uri: String(microsoft_sso.redirect_uri || '').trim() || null,
-                    allowed_domains: normalizeAllowedDomains(microsoft_sso.allowed_domains),
+                    allowed_domains: parsedAllowedDomains.domains,
                     is_enabled: isEnabled,
                 },
             });

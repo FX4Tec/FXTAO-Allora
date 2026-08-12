@@ -529,7 +529,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>URL direta do cliente</Label>
                 <Input
-                  placeholder="allora.fxtao.fx4.com.br"
+                  placeholder="cliente.fxtao.fx4.com.br"
                   value={tenantSettings.primary_domain}
                   onChange={(e) => updateTenantSetting('primary_domain', e.target.value)}
                 />
@@ -538,7 +538,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Alias/Subdomínio adicional</Label>
                 <Input
-                  placeholder="tao.cliente.com.br"
+                  placeholder="portal.cliente.com.br"
                   value={tenantSettings.app_subdomain}
                   onChange={(e) => updateTenantSetting('app_subdomain', e.target.value)}
                 />
@@ -572,7 +572,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Microsoft Tenant ID</Label>
                 <Input
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  placeholder="Cole o Tenant ID do Microsoft Entra"
                   value={tenantSettings.microsoft_sso.authority_tenant_id}
                   onChange={(e) => updateSsoSetting('authority_tenant_id', e.target.value)}
                 />
@@ -580,7 +580,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Microsoft Client ID</Label>
                 <Input
-                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  placeholder="Cole o Client ID do aplicativo"
                   value={tenantSettings.microsoft_sso.client_id}
                   onChange={(e) => updateSsoSetting('client_id', e.target.value)}
                 />
@@ -600,7 +600,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Redirect URI</Label>
                 <Input
-                  placeholder="https://allora.fxtao.fx4.com.br/api/v1/auth/microsoft/callback"
+                  placeholder="https://cliente.fxtao.fx4.com.br/api/v1/auth/microsoft/callback"
                   value={tenantSettings.microsoft_sso.redirect_uri}
                   onChange={(e) => updateSsoSetting('redirect_uri', e.target.value)}
                 />
@@ -608,11 +608,11 @@ export default function Settings() {
               <div className="space-y-2 md:col-span-2">
                 <Label>Domínios de e-mail permitidos</Label>
                 <Input
-                  placeholder="alloraconstrutora.com.br, alloraconstrutora.onmicrosoft.com"
+                  placeholder="empresa.com.br"
                   value={tenantSettings.microsoft_sso.allowed_domains}
                   onChange={(e) => updateSsoSetting('allowed_domains', e.target.value)}
                 />
-                <p className="text-xs text-slate-500">Separe por vírgula. Se vazio, qualquer domínio aceito pelo app Microsoft poderá autenticar usuários cadastrados.</p>
+                <p className="text-xs text-slate-500">Separe por vírgula. Informe apenas domínios de e-mail, sem URL, caminho, curinga ou protocolo.</p>
               </div>
             </div>
 
@@ -652,7 +652,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Tenant ID Microsoft da webpart</Label>
                 <Input
-                  placeholder="Directory (tenant) ID"
+                  placeholder="Cole o Tenant ID do Microsoft Entra"
                   value={tenantSettings.sharepoint_webpart.authority_tenant_id}
                   onChange={(e) => updateSharepointSetting('authority_tenant_id', e.target.value)}
                 />
@@ -660,7 +660,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Client ID da API FX TAO</Label>
                 <Input
-                  placeholder="Application (client) ID"
+                  placeholder="Cole o Client ID da API"
                   value={tenantSettings.sharepoint_webpart.api_client_id}
                   onChange={(e) => updateSharepointSetting('api_client_id', e.target.value)}
                 />
@@ -668,7 +668,7 @@ export default function Settings() {
               <div className="space-y-2">
                 <Label>Application ID URI</Label>
                 <Input
-                  placeholder="api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  placeholder="Cole o Application ID URI do Entra ID"
                   value={tenantSettings.sharepoint_webpart.api_resource_uri}
                   onChange={(e) => updateSharepointSetting('api_resource_uri', e.target.value)}
                 />
@@ -685,7 +685,7 @@ export default function Settings() {
               <div className="space-y-2 md:col-span-2">
                 <Label>Origens SharePoint permitidas</Label>
                 <Input
-                  placeholder="https://cincieng.sharepoint.com"
+                  placeholder="https://empresa.sharepoint.com"
                   value={tenantSettings.sharepoint_webpart.allowed_origins}
                   onChange={(e) => updateSharepointSetting('allowed_origins', e.target.value)}
                 />
