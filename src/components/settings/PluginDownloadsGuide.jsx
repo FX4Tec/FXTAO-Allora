@@ -102,7 +102,11 @@ export default function PluginDownloadsGuide() {
                   'No FXTAO SaaS, entre no cliente correto pelo acesso assistido e abra Configurações > Webpart SharePoint FXTAO.',
                   'Preencha Tenant ID Microsoft, Client ID da API, Application ID URI, escopo access_as_user e a origem SharePoint permitida.',
                   'Salve e habilite a integração apenas após confirmar que a origem está correta, por exemplo https://empresa.sharepoint.com.',
+                  'No Microsoft Entra, confirme que o App Registration FX TAO API tem Application ID URI definido e escopo delegado access_as_user.',
+                  'No manifesto do aplicativo, confirme accessTokenAcceptedVersion como 2.',
                   'No SharePoint Admin Center, acesse Advanced > API access.',
+                  'Se houver solicitação antiga ou inválida, rejeite antes de reenviar o pacote .sppkg.',
+                  'Reenvie o pacote .sppkg no App Catalog para gerar a solicitação correta, se ela não aparecer.',
                   'Aprove a permissão exibida para a API FX TAO, normalmente FX TAO API / access_as_user.',
                   'Confirme no Microsoft Entra que o aplicativo usado pela API FXTAO aceita tokens do tenant correto.',
                   'Valide que a URL do FXTAO SaaS do cliente está em HTTPS e autorizada nas configurações da webpart.',
@@ -117,6 +121,36 @@ export default function PluginDownloadsGuide() {
                   'Informe o identificador da obra: ID interno, ERP ou outro identificador aceito pela webpart.',
                   'Publique a página e teste com um usuário autorizado do Microsoft 365.',
                 ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">4. Campos das propriedades da webpart</p>
+                <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+                  <div className="rounded-lg border bg-white p-3">
+                    <p><strong>Título</strong>: texto exibido no cabeçalho.</p>
+                    <p><strong>Código ERP, código da obra ou ID da TAO</strong>: identificador da obra.</p>
+                    <p><strong>URL base da API FX TAO</strong>: https://fxtao.fx4.com.br.</p>
+                    <p><strong>URI do recurso Entra ID</strong>: Application ID URI cadastrado no Entra e no FXTAO.</p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-3">
+                    <p><strong>URL do portal FX TAO</strong>: link opcional para abrir a TAO completa.</p>
+                    <p><strong>Exibir status da TAO</strong>: mostra/oculta o selo de status.</p>
+                    <p><strong>Exibir centros de custo</strong>: mostra/oculta os centros de custo publicados.</p>
+                    <p><strong>Atualização automática</strong>: intervalo em minutos; zero desativa.</p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-3 md:col-span-2">
+                    <p className="font-semibold text-slate-900">Chaves aceitas em Campos visíveis/ocultos (CSV)</p>
+                    <p className="mt-1 font-mono text-xs">
+                      clientName, architecture, areaM2, projectType, street, neighborhood, zipCode, cityState, complement, companyName, companyCode, clientCode, clientCostCenters, companyCostCenters, segment, contractType, startDate, endDate
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100 md:col-span-2">
+                    <p>Exemplo de JSON de campos:</p>
+                    <p>[{'{'}"key":"clientName","label":"Cliente","enabled":true{'}'}, {'{'}"key":"areaM2","label":"Área","enabled":true{'}'}]</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                Se a webpart exibir Failed to fetch, verifique certificado HTTPS, origem SharePoint autorizada no FXTAO, Application ID URI idêntico na webpart e aprovação FX TAO API / access_as_user no SharePoint Admin.
               </div>
             </AccordionContent>
           </AccordionItem>
