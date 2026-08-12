@@ -32,7 +32,21 @@ const findTenantByUserEmail = async (email) => {
     return null;
 };
 
-const resolveAuthTenant = async (req, email) => req.tenant || findTenantByUserEmail(email);
+const findCatalogUserByEmail = async (email) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !normalizedEmail.includes('@')) return null;
+
+    return prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+    });
+};
+
+const resolveAuthTenant = async (req, email, { preferCatalogUser = false } = {}) => {
+    if (req.tenant) return req.tenant;
+    if (preferCatalogUser && await findCatalogUserByEmail(email)) return null;
+    return findTenantByUserEmail(email);
+};
 
 const userSelect = {
     id: true,
@@ -116,7 +130,7 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const normalizedEmail = normalizeEmail(email);
-        const tenant = await resolveAuthTenant(req, normalizedEmail);
+        const tenant = await resolveAuthTenant(req, normalizedEmail, { preferCatalogUser: true });
         const authDb = dbForTenant(tenant);
 
         if (tenant && tenant.local_login_enabled === false) {
@@ -297,7 +311,7 @@ exports.changePassword = async (req, res) => {
 // Public branding used by login page (no token required)
 exports.branding = async (req, res) => {
     try {
-        const tenant = await resolveAuthTenant(req, req.query.email);
+        const tenant = await resolveAuthTenant(req, req.query.email, { preferCatalogUser: true });
         const authDb = dbForTenant(tenant);
         const configs = await authDb.systemConfig.findMany({
             where: { key: { in: ['client_logo_url'] } },
