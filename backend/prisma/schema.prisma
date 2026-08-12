@@ -834,6 +834,7 @@ model SaasSsoConfig {
   authority_tenant_id String?
   client_id           String?
   client_secret_ref   String?
+  client_secret_encrypted String?   @db.Text
   redirect_uri        String?
   allowed_domains     String[]   @default([])
   is_enabled          Boolean    @default(false)

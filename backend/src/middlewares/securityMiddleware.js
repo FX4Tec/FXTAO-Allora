@@ -19,6 +19,19 @@ const configuredOrigins = () => {
     return new Set(origins.map(normalizeOrigin).filter(Boolean));
 };
 
+const configuredOriginSuffixes = () => splitCsv(process.env.SAAS_ALLOWED_ORIGIN_SUFFIXES)
+    .map((suffix) => suffix.toLowerCase().replace(/^\*\./, '.'))
+    .filter((suffix) => suffix.startsWith('.'));
+
+const originMatchesAllowedSuffix = (origin) => {
+    try {
+        const hostname = new URL(origin).hostname.toLowerCase();
+        return configuredOriginSuffixes().some((suffix) => hostname.endsWith(suffix));
+    } catch (error) {
+        return false;
+    }
+};
+
 const requestId = (req, res, next) => {
     const existingId = req.headers['x-request-id'];
     req.id = existingId || crypto.randomUUID();
@@ -37,6 +50,10 @@ const corsMiddleware = cors({
         }
 
         if (allowedOrigins.has(normalizeOrigin(origin))) {
+            return callback(null, true);
+        }
+
+        if (originMatchesAllowedSuffix(origin)) {
             return callback(null, true);
         }
 

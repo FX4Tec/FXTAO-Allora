@@ -48,6 +48,7 @@ const Login = () => {
     const clientLogoUrl = systemConfigs?.find(c => c.key === 'client_logo_url')?.value;
     const fx4LogoUrl = "https://fx4.com.br/wp-content/uploads/2025/07/logo-bola.png";
     const showMicrosoftLogin = (import.meta.env.VITE_ENABLE_MICROSOFT_LOGIN ?? 'true') !== 'false';
+    const apiBaseUrl = import.meta.env.VITE_API_URL || '/api/v1';
 
     React.useEffect(() => {
         if (isAuthenticated) {
@@ -158,7 +159,10 @@ const Login = () => {
                                                 const redirectUrl = `${from.pathname}${from.search}`;
                                                 sessionStorage.setItem('sso_redirect_url', redirectUrl);
                                             }
-                                            window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}/auth/microsoft`;
+                                            const params = new URLSearchParams();
+                                            if (brandingEmail.includes('@')) params.set('email', brandingEmail);
+                                            const query = params.toString();
+                                            window.location.href = `${apiBaseUrl}/auth/microsoft${query ? `?${query}` : ''}`;
                                         }}
                                         disabled={isLoading}
                                     >

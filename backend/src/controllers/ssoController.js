@@ -2,7 +2,8 @@ const axios = require('axios');
 const { catalogPrisma: prisma, getTenantClient } = require('../services/prismaService');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { writeAuditLog } = require('../services/saasCatalogService');
+const { findTenantBySlugOrHost, safeListTenants, writeAuditLog } = require('../services/saasCatalogService');
+const { resolveMicrosoftConfig, tenantOrigin } = require('../services/ssoConfigService');
 
 const dbForTenant = (tenant) => (tenant?.database_url ? getTenantClient(tenant.database_url) : prisma);
 
@@ -18,12 +19,63 @@ const resolveTenantFromState = async (req, statePayload) => {
     return tenant || null;
 };
 
-
-const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
-const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
-const TENANT_ID = process.env.MICROSOFT_TENANT_ID || 'common';
-const REDIRECT_URI = process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:3000/api/auth/microsoft/callback';
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+const findTenantByUserEmail = async (email) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !normalizedEmail.includes('@')) return null;
+
+    const tenants = await safeListTenants();
+    for (const tenant of tenants) {
+        if (tenant.operational_status === 'suspended' || !tenant.database_url) continue;
+
+        try {
+            const tenantDb = getTenantClient(tenant.database_url);
+            const user = await tenantDb.user.findUnique({
+                where: { email: normalizedEmail },
+                select: { id: true },
+            });
+            if (user) return tenant;
+        } catch (error) {
+            console.error(`Failed to resolve SSO tenant for ${tenant.slug}:`, error.message);
+        }
+    }
+
+    return null;
+};
+
+const findCatalogUserByEmail = async (email) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !normalizedEmail.includes('@')) return null;
+
+    return prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true },
+    });
+};
+
+const resolveTenantForInitiate = async (req) => {
+    if (req.tenant?.id) return req.tenant;
+    if (req.query.tenant) return findTenantBySlugOrHost(req.query.tenant);
+    if (req.query.email) {
+        if (await findCatalogUserByEmail(req.query.email)) return null;
+        return findTenantByUserEmail(req.query.email);
+    }
+    return null;
+};
+
+const originFromState = (statePayload) => {
+    const hostOrigin = tenantOrigin(statePayload?.host);
+    return hostOrigin || process.env.FRONTEND_URL || 'http://localhost:5173';
+};
+
+const isEmailDomainAllowed = (email, allowedDomains = []) => {
+    if (!allowedDomains.length) return true;
+    const domain = normalizeEmail(email).split('@')[1];
+    return Boolean(domain && allowedDomains.includes(domain));
+};
 
 const signStatePayload = (payload) => {
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -66,10 +118,14 @@ const verifyState = (state) => {
 
 // 1. Redirect to Microsoft Login
 exports.initiateMicrosoftLogin = async (req, res) => {
-    if (req.tenant && req.tenant.microsoft_login_enabled === false) {
+    const tenant = await resolveTenantForInitiate(req);
+    const host = req.headers['x-forwarded-host'] || req.headers.host || null;
+    const microsoftConfig = resolveMicrosoftConfig(tenant, host);
+
+    if (!microsoftConfig?.clientId || !microsoftConfig?.clientSecret) {
         await writeAuditLog({
             req,
-            tenantId: req.tenant.id,
+            tenantId: tenant?.id,
             action: 'auth.sso.disabled',
             resource: 'auth',
             result: 'blocked',
@@ -80,21 +136,22 @@ exports.initiateMicrosoftLogin = async (req, res) => {
     const state = signStatePayload({
         nonce: crypto.randomUUID(),
         createdAt: Date.now(),
-        tenantId: req.tenant?.id || null,
-        tenantSlug: req.tenant?.slug || null,
-        host: req.headers['x-forwarded-host'] || req.headers.host || null,
+        tenantId: tenant?.id || null,
+        tenantSlug: tenant?.slug || null,
+        host,
+        redirectUri: microsoftConfig.redirectUri,
     });
 
     const params = new URLSearchParams({
-        client_id: CLIENT_ID,
+        client_id: microsoftConfig.clientId,
         response_type: 'code',
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: microsoftConfig.redirectUri,
         response_mode: 'query',
         scope: 'openid profile email User.Read',
         state,
     });
 
-    const url = `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/authorize?${params.toString()}`;
+    const url = `https://login.microsoftonline.com/${microsoftConfig.tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
     res.redirect(url);
 };
 
@@ -122,18 +179,30 @@ exports.handleMicrosoftCallback = async (req, res) => {
     try {
         const tenant = await resolveTenantFromState(req, statePayload);
         const authDb = dbForTenant(tenant);
+        const microsoftConfig = resolveMicrosoftConfig(tenant, statePayload.host);
+
+        if (!microsoftConfig?.clientId || !microsoftConfig?.clientSecret) {
+            await writeAuditLog({
+                req,
+                tenantId: tenant?.id,
+                action: 'auth.sso.callback.disabled',
+                resource: 'auth',
+                result: 'blocked',
+            });
+            return res.status(403).send('Microsoft login is disabled for this tenant.');
+        }
 
         console.log('SSO: Exchanging code for token...');
         // Exchange code for token
         const tokenResponse = await axios.post(
-            `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`,
+            `https://login.microsoftonline.com/${microsoftConfig.tenantId}/oauth2/v2.0/token`,
             new URLSearchParams({
-                client_id: CLIENT_ID,
+                client_id: microsoftConfig.clientId,
                 scope: 'openid profile email User.Read',
                 code: code,
-                redirect_uri: REDIRECT_URI,
+                redirect_uri: statePayload.redirectUri || microsoftConfig.redirectUri,
                 grant_type: 'authorization_code',
-                client_secret: CLIENT_SECRET,
+                client_secret: microsoftConfig.clientSecret,
             }),
             { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
@@ -158,16 +227,29 @@ exports.handleMicrosoftCallback = async (req, res) => {
             return res.status(400).send('Microsoft did not return an email address.');
         }
 
+        if (tenant && !isEmailDomainAllowed(email, microsoftConfig.allowedDomains)) {
+            await writeAuditLog({
+                req,
+                tenantId: tenant.id,
+                userEmail: email,
+                action: 'auth.sso.email_domain.blocked',
+                resource: 'auth',
+                result: 'blocked',
+            });
+            return res.status(403).send('Email domain is not authorized for this tenant.');
+        }
+
         // Find or Create User
         console.log('SSO: Finding/Creating user for email:', email);
-        let user = await authDb.user.findUnique({ where: { email } });
+        const normalizedEmail = normalizeEmail(email);
+        let user = await authDb.user.findUnique({ where: { email: normalizedEmail } });
 
         if (!user) {
             console.log('SSO: Creating new user');
             const autoActivate = process.env.SSO_AUTO_ACTIVATE_NEW_USERS === 'true';
             user = await authDb.user.create({
                 data: {
-                    email,
+                    email: normalizedEmail,
                     full_name: userProfile.displayName,
                     auth_provider: 'microsoft',
                     sso_id: userProfile.id,
@@ -189,7 +271,7 @@ exports.handleMicrosoftCallback = async (req, res) => {
             // Update existing user if needed (link account)
             if (user.auth_provider === 'local' || !user.sso_id) {
                 user = await authDb.user.update({
-                    where: { email },
+                    where: { email: normalizedEmail },
                     data: {
                         auth_provider: 'microsoft',
                         sso_id: userProfile.id
@@ -221,14 +303,14 @@ exports.handleMicrosoftCallback = async (req, res) => {
         await writeAuditLog({
             req,
             tenantId: tenant?.id,
-            userEmail: email,
+            userEmail: normalizedEmail,
             action: 'auth.sso.success',
             resource: 'auth',
         });
 
         // Redirect to Frontend
         // Ensure this URL matches your frontend port
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const frontendUrl = originFromState(statePayload);
         res.redirect(`${frontendUrl}/sso-callback?token=${token}`);
 
     } catch (error) {

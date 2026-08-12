@@ -46,6 +46,11 @@ const MapBounds = ({ markers }) => {
   return null;
 };
 
+const parseCoordinate = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 export default function Heatmap() {
   const { data: taos, isLoading } = useQuery({
     queryKey: ['taos-map'],
@@ -63,7 +68,13 @@ export default function Heatmap() {
     },
   });
 
-  const taosWithLocation = taos?.filter(t => t.latitude && t.longitude) || [];
+  const taosWithLocation = (taos || [])
+    .map((tao) => ({
+      ...tao,
+      latitude: parseCoordinate(tao.latitude),
+      longitude: parseCoordinate(tao.longitude),
+    }))
+    .filter((tao) => tao.latitude !== null && tao.longitude !== null);
   const defaultCenter = [-23.5505, -46.6333]; // São Paulo
 
   const getMarkerIcon = (tao) => {
@@ -141,6 +152,12 @@ export default function Heatmap() {
                 </Popup>
               </Marker>
             ))}
+
+            {!taosWithLocation.length && (
+              <div className="absolute inset-x-4 bottom-4 z-[400] rounded-lg border bg-white/95 p-4 text-sm text-slate-600 shadow">
+                Nenhuma obra com latitude e longitude cadastradas para exibir no mapa deste cliente.
+              </div>
+            )}
           </MapContainer>
         )}
       </Card>

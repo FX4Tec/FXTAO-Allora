@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import PermissionsManager from '@/components/PermissionsManager';
-import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon, KeyRound, ShieldCheck, UserCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon, KeyRound, ShieldCheck, UserCircle, Globe2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCard';
@@ -17,6 +17,21 @@ export default function Settings() {
   const { user, assistedTenant } = useAuth();
   const isCentralFx4Mode = user?.role === 'admin' && !assistedTenant;
   const [clientLogoUrl, setClientLogoUrl] = useState('');
+  const [tenantSettings, setTenantSettings] = useState({
+    primary_domain: '',
+    app_subdomain: '',
+    local_login_enabled: true,
+    microsoft_login_enabled: false,
+    microsoft_sso: {
+      authority_tenant_id: '',
+      client_id: '',
+      client_secret: '',
+      redirect_uri: '',
+      allowed_domains: '',
+      is_enabled: false,
+      has_client_secret: false,
+    },
+  });
 
   // Fetch System Configs
   const { data: systemConfigs } = useQuery({
@@ -24,6 +39,15 @@ export default function Settings() {
     queryFn: async () => {
       const res = await api.get('/resources/system-configs');
       return res.data || [];
+    },
+    enabled: !isCentralFx4Mode,
+  });
+
+  const { data: saasTenantSettings } = useQuery({
+    queryKey: ['saasTenantSettings'],
+    queryFn: async () => {
+      const res = await api.get('/saas/tenant-settings');
+      return res.data || null;
     },
     enabled: !isCentralFx4Mode,
   });
@@ -36,6 +60,27 @@ export default function Settings() {
       }
     }
   }, [systemConfigs]);
+
+  useEffect(() => {
+    if (!saasTenantSettings?.tenant) return;
+
+    const sso = saasTenantSettings.microsoft_sso || {};
+    setTenantSettings({
+      primary_domain: saasTenantSettings.tenant.primary_domain || '',
+      app_subdomain: saasTenantSettings.tenant.app_subdomain || '',
+      local_login_enabled: saasTenantSettings.tenant.local_login_enabled !== false,
+      microsoft_login_enabled: Boolean(saasTenantSettings.tenant.microsoft_login_enabled),
+      microsoft_sso: {
+        authority_tenant_id: sso.authority_tenant_id || '',
+        client_id: sso.client_id || '',
+        client_secret: '',
+        redirect_uri: sso.redirect_uri || '',
+        allowed_domains: (sso.allowed_domains || []).join(', '),
+        is_enabled: Boolean(sso.is_enabled),
+        has_client_secret: Boolean(sso.has_client_secret),
+      },
+    });
+  }, [saasTenantSettings]);
 
   const logoMutation = useMutation({
     mutationFn: async (url) => {
@@ -54,6 +99,35 @@ export default function Settings() {
 
   const handleSaveLogo = () => {
     logoMutation.mutate(clientLogoUrl);
+  };
+
+  const tenantSettingsMutation = useMutation({
+    mutationFn: async () => api.put('/saas/tenant-settings', {
+      primary_domain: tenantSettings.primary_domain,
+      app_subdomain: tenantSettings.app_subdomain,
+      local_login_enabled: tenantSettings.local_login_enabled,
+      microsoft_login_enabled: tenantSettings.microsoft_login_enabled,
+      branding_logo_url: clientLogoUrl,
+      microsoft_sso: tenantSettings.microsoft_sso,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['saasTenantSettings']);
+      toast.success('Configurações SaaS do cliente salvas com sucesso.');
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.error || error?.response?.data?.details || 'Falha ao salvar configurações SaaS.');
+    },
+  });
+
+  const updateTenantSetting = (key, value) => {
+    setTenantSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateSsoSetting = (key, value) => {
+    setTenantSettings(prev => ({
+      ...prev,
+      microsoft_sso: { ...prev.microsoft_sso, [key]: value },
+    }));
   };
 
   const [settings, setSettings] = useState({
@@ -408,6 +482,120 @@ export default function Settings() {
               )}
             </div>
           </CardContent>
+        </Card>
+
+        <Card className="border-blue-100 shadow-sm md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-800">
+              <Globe2 className="w-5 h-5" />
+              Acesso Direto e Microsoft Entra SSO
+            </CardTitle>
+            <CardDescription>
+              Defina o domínio exclusivo deste cliente e as credenciais Microsoft Entra usadas somente neste tenant.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>URL direta do cliente</Label>
+                <Input
+                  placeholder="allora.fxtao.fx4.com.br"
+                  value={tenantSettings.primary_domain}
+                  onChange={(e) => updateTenantSetting('primary_domain', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Ao acessar este host, o login já carrega logo/contexto deste cliente.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Alias/Subdomínio adicional</Label>
+                <Input
+                  placeholder="tao.cliente.com.br"
+                  value={tenantSettings.app_subdomain}
+                  onChange={(e) => updateTenantSetting('app_subdomain', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Opcional. Também será registrado como domínio do tenant no catálogo SaaS.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 rounded-lg border bg-slate-50 p-4 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={tenantSettings.local_login_enabled}
+                  onChange={(e) => updateTenantSetting('local_login_enabled', e.target.checked)}
+                />
+                Login local habilitado
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={tenantSettings.microsoft_login_enabled}
+                  onChange={(e) => {
+                    updateTenantSetting('microsoft_login_enabled', e.target.checked);
+                    updateSsoSetting('is_enabled', e.target.checked);
+                  }}
+                />
+                Microsoft SSO habilitado
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Microsoft Tenant ID</Label>
+                <Input
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={tenantSettings.microsoft_sso.authority_tenant_id}
+                  onChange={(e) => updateSsoSetting('authority_tenant_id', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Microsoft Client ID</Label>
+                <Input
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={tenantSettings.microsoft_sso.client_id}
+                  onChange={(e) => updateSsoSetting('client_id', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Client Secret</Label>
+                <Input
+                  type="password"
+                  placeholder={tenantSettings.microsoft_sso.has_client_secret ? 'Secret já cadastrado; preencha só para trocar' : 'Cole o Value do secret do Entra'}
+                  value={tenantSettings.microsoft_sso.client_secret}
+                  onChange={(e) => updateSsoSetting('client_secret', e.target.value)}
+                />
+                {tenantSettings.microsoft_sso.has_client_secret && (
+                  <p className="text-xs text-emerald-700">Secret armazenado de forma criptografada. O valor não é exibido.</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Redirect URI</Label>
+                <Input
+                  placeholder="https://allora.fxtao.fx4.com.br/api/v1/auth/microsoft/callback"
+                  value={tenantSettings.microsoft_sso.redirect_uri}
+                  onChange={(e) => updateSsoSetting('redirect_uri', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Domínios de e-mail permitidos</Label>
+                <Input
+                  placeholder="alloraconstrutora.com.br, alloraconstrutora.onmicrosoft.com"
+                  value={tenantSettings.microsoft_sso.allowed_domains}
+                  onChange={(e) => updateSsoSetting('allowed_domains', e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Separe por vírgula. Se vazio, qualquer domínio aceito pelo app Microsoft poderá autenticar usuários cadastrados.</p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Cadastre esta Redirect URI no Microsoft Entra em <strong>Authentication</strong>. Em produção, use HTTPS e mantenha o secret protegido.
+            </div>
+          </CardContent>
+          <CardFooter className="bg-slate-50 border-t border-slate-100">
+            <Button className="ml-auto bg-blue-700 hover:bg-blue-800" onClick={() => tenantSettingsMutation.mutate()} disabled={tenantSettingsMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" />
+              {tenantSettingsMutation.isPending ? 'Salvando...' : 'Salvar Acesso e SSO'}
+            </Button>
+          </CardFooter>
         </Card>
 
         {/* ViaCEP Integration */}

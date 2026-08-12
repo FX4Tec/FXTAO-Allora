@@ -3,10 +3,19 @@ const crypto = require('crypto');
 const {
     ensureBootstrapTenant,
     ensureDefaultPlan,
+    findTenantBySlugOrHost,
+    normalizeHostname,
     safeListTenants,
     sanitizeTenant,
     writeAuditLog,
 } = require('../services/saasCatalogService');
+const {
+    PROVIDER_MICROSOFT,
+    defaultRedirectUri,
+    encryptSecret,
+    microsoftConfigFromTenant,
+    publicSsoConfig,
+} = require('../services/ssoConfigService');
 
 
 const isFx4Admin = (user) => ['admin', 'director'].includes(user?.role);
@@ -26,6 +35,69 @@ const requireFx4Admin = async (req, res) => {
         return null;
     }
     return user;
+};
+
+const loadTenantUser = async (req, tenant) => {
+    if (!req.userId || !tenant?.database_url) return null;
+
+    const tenantDb = getTenantClient(tenant.database_url);
+    return tenantDb.user.findUnique({
+        where: { id: req.userId },
+        select: { id: true, email: true, role: true, full_name: true, is_active: true },
+    });
+};
+
+const normalizeAllowedDomains = (value) => {
+    const items = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    return Array.from(new Set(items
+        .map((item) => normalizeHostname(item))
+        .filter(Boolean)));
+};
+
+const resolveManageableTenant = async (req, res) => {
+    const assistedSlug = req.headers['x-fx4-tenant-slug'] || req.headers['x-tenant-slug'];
+
+    if (assistedSlug) {
+        const user = await requireFx4Admin(req, res);
+        if (!user) return null;
+
+        const tenant = await findTenantBySlugOrHost(assistedSlug);
+        if (!tenant) {
+            res.status(404).json({ error: 'Tenant não encontrado.' });
+            return null;
+        }
+
+        return { tenant, user, accessMode: 'assisted' };
+    }
+
+    const tokenTenant = req.tokenTenantId
+        ? await prisma.saasTenant.findUnique({
+            where: { id: req.tokenTenantId },
+            include: { domains: true, sso_configs: true },
+        })
+        : null;
+    const tenant = req.tenant?.id ? req.tenant : tokenTenant;
+
+    if (!tenant?.id) {
+        res.status(400).json({ error: 'Selecione um cliente para gerenciar estas configurações.' });
+        return null;
+    }
+
+    if (req.tokenTenantId !== tenant.id) {
+        res.status(403).json({ error: 'Sessão não pertence a este tenant.' });
+        return null;
+    }
+
+    const user = await loadTenantUser(req, tenant);
+    if (!user?.is_active || !isFx4Admin(user)) {
+        res.status(403).json({ error: 'Configuração restrita a administradores do cliente.' });
+        return null;
+    }
+
+    return { tenant, user, accessMode: 'tenant' };
 };
 
 const tenantStats = async (tenant) => {
@@ -52,6 +124,19 @@ const tenantStats = async (tenant) => {
 const tenantResponse = async (tenant) => ({
     ...sanitizeTenant(tenant),
     stats: await tenantStats(tenant),
+});
+
+const tenantSettingsResponse = (tenant) => ({
+    tenant: sanitizeTenant(tenant),
+    microsoft_sso: publicSsoConfig(microsoftConfigFromTenant(tenant)) || {
+        provider: PROVIDER_MICROSOFT,
+        authority_tenant_id: '',
+        client_id: '',
+        redirect_uri: defaultRedirectUri(tenant?.primary_domain || tenant?.app_subdomain),
+        allowed_domains: [],
+        is_enabled: false,
+        has_client_secret: false,
+    },
 });
 
 exports.context = async (req, res) => {
@@ -244,6 +329,148 @@ exports.updateTenant = async (req, res) => {
         res.json(await tenantResponse(tenant));
     } catch (error) {
         res.status(500).json({ error: 'Falha ao atualizar tenant.', details: error.message });
+    }
+};
+
+exports.getTenantSettings = async (req, res) => {
+    const context = await resolveManageableTenant(req, res);
+    if (!context) return;
+
+    try {
+        const tenant = await prisma.saasTenant.findUnique({
+            where: { id: context.tenant.id },
+            include: { domains: true, sso_configs: true },
+        });
+
+        if (!tenant) return res.status(404).json({ error: 'Tenant não encontrado.' });
+        res.json(tenantSettingsResponse(tenant));
+    } catch (error) {
+        res.status(500).json({ error: 'Falha ao carregar configurações do tenant.', details: error.message });
+    }
+};
+
+exports.updateTenantSettings = async (req, res) => {
+    const context = await resolveManageableTenant(req, res);
+    if (!context) return;
+
+    try {
+        const existing = await prisma.saasTenant.findUnique({
+            where: { id: context.tenant.id },
+            include: { domains: true, sso_configs: true },
+        });
+
+        if (!existing) return res.status(404).json({ error: 'Tenant não encontrado.' });
+
+        const {
+            primary_domain,
+            app_subdomain,
+            branding_logo_url,
+            local_login_enabled,
+            microsoft_login_enabled,
+            microsoft_sso,
+        } = req.body;
+
+        const tenantData = {};
+        if (primary_domain !== undefined) tenantData.primary_domain = normalizeHostname(primary_domain) || null;
+        if (app_subdomain !== undefined) tenantData.app_subdomain = normalizeHostname(app_subdomain) || null;
+        if (branding_logo_url !== undefined) tenantData.branding_logo_url = String(branding_logo_url || '').trim() || null;
+        if (local_login_enabled !== undefined) tenantData.local_login_enabled = Boolean(local_login_enabled);
+        if (microsoft_login_enabled !== undefined) tenantData.microsoft_login_enabled = Boolean(microsoft_login_enabled);
+
+        const tenant = await prisma.saasTenant.update({
+            where: { id: existing.id },
+            data: tenantData,
+            include: { domains: true, sso_configs: true },
+        });
+
+        const domainCandidates = [
+            tenantData.primary_domain,
+            tenantData.app_subdomain,
+        ].filter(Boolean);
+
+        for (const hostname of domainCandidates) {
+            await prisma.saasTenantDomain.upsert({
+                where: { hostname },
+                update: {
+                    tenant_id: tenant.id,
+                    is_primary: hostname === tenant.primary_domain,
+                    proxy_status: 'active',
+                    ssl_status: 'pending',
+                },
+                create: {
+                    id: crypto.randomUUID(),
+                    tenant_id: tenant.id,
+                    hostname,
+                    is_primary: hostname === tenant.primary_domain,
+                    proxy_status: 'active',
+                    ssl_status: 'pending',
+                },
+            });
+        }
+
+        if (microsoft_sso) {
+            const currentConfig = microsoftConfigFromTenant(existing);
+            const isEnabled = Boolean(microsoft_sso.is_enabled);
+            const nextSecret = String(microsoft_sso.client_secret || '').trim();
+            const hasSecret = Boolean(nextSecret || currentConfig?.client_secret_encrypted);
+
+            if (isEnabled && (!microsoft_sso.authority_tenant_id || !microsoft_sso.client_id || !hasSecret)) {
+                return res.status(400).json({
+                    error: 'Para habilitar SSO Microsoft, informe Tenant ID, Client ID e Client Secret.',
+                });
+            }
+
+            await prisma.saasSsoConfig.upsert({
+                where: { id: currentConfig?.id || crypto.randomUUID() },
+                update: {
+                    authority_tenant_id: String(microsoft_sso.authority_tenant_id || '').trim() || null,
+                    client_id: String(microsoft_sso.client_id || '').trim() || null,
+                    client_secret_encrypted: nextSecret ? encryptSecret(nextSecret) : currentConfig?.client_secret_encrypted || null,
+                    redirect_uri: String(microsoft_sso.redirect_uri || '').trim() || null,
+                    allowed_domains: normalizeAllowedDomains(microsoft_sso.allowed_domains),
+                    is_enabled: isEnabled,
+                },
+                create: {
+                    id: currentConfig?.id || crypto.randomUUID(),
+                    tenant_id: tenant.id,
+                    provider: PROVIDER_MICROSOFT,
+                    authority_tenant_id: String(microsoft_sso.authority_tenant_id || '').trim() || null,
+                    client_id: String(microsoft_sso.client_id || '').trim() || null,
+                    client_secret_encrypted: nextSecret ? encryptSecret(nextSecret) : null,
+                    redirect_uri: String(microsoft_sso.redirect_uri || '').trim() || null,
+                    allowed_domains: normalizeAllowedDomains(microsoft_sso.allowed_domains),
+                    is_enabled: isEnabled,
+                },
+            });
+        }
+
+        const updated = await prisma.saasTenant.findUnique({
+            where: { id: tenant.id },
+            include: { domains: true, sso_configs: true },
+        });
+
+        await writeAuditLog({
+            req,
+            tenantId: tenant.id,
+            userEmail: context.user.email,
+            action: 'saas.tenant.settings.update',
+            resource: 'saas_tenants',
+            beforeData: {
+                primary_domain: existing.primary_domain,
+                app_subdomain: existing.app_subdomain,
+                microsoft_login_enabled: existing.microsoft_login_enabled,
+            },
+            afterData: {
+                primary_domain: updated.primary_domain,
+                app_subdomain: updated.app_subdomain,
+                microsoft_login_enabled: updated.microsoft_login_enabled,
+                sso_enabled: microsoftConfigFromTenant(updated)?.is_enabled || false,
+            },
+        });
+
+        res.json(tenantSettingsResponse(updated));
+    } catch (error) {
+        res.status(500).json({ error: 'Falha ao salvar configurações do tenant.', details: error.message });
     }
 };
 
