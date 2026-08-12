@@ -1,9 +1,10 @@
 const { prisma } = require('../services/prismaService');
+const { isFx4SuperAdmin } = require('../services/superAdminService');
 
 
 module.exports = async (req, res, next) => {
     try {
-        if (req.fx4User && ['admin', 'director'].includes(req.fx4User.role)) {
+        if (req.fx4User && isFx4SuperAdmin(req.fx4User)) {
             req.currentUserRole = req.fx4User.role;
             return next();
         }

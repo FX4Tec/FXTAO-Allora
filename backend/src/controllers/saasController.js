@@ -17,21 +17,39 @@ const {
     publicSsoConfig,
 } = require('../services/ssoConfigService');
 const { provisionTenantDatabase } = require('../services/tenantProvisioningService');
+const { isFx4SuperAdmin } = require('../services/superAdminService');
 
 
-const isFx4Admin = (user) => ['admin', 'director'].includes(user?.role);
-
-const loadUser = async (req) => {
+const loadCentralOrTenantUser = async (req) => {
     if (!req.userId) return null;
+
+    if (req.tokenTenantId) {
+        const tenant = req.tenant?.id === req.tokenTenantId
+            ? req.tenant
+            : await prisma.saasTenant.findUnique({ where: { id: req.tokenTenantId } });
+
+        if (tenant?.database_url) {
+            const tenantDb = getTenantClient(tenant.database_url);
+            return tenantDb.user.findUnique({
+                where: { id: req.userId },
+                select: { id: true, email: true, role: true, full_name: true, is_active: true },
+            });
+        }
+
+        return null;
+    }
+
     return prisma.user.findUnique({
         where: { id: req.userId },
-        select: { id: true, email: true, role: true, full_name: true },
+        select: { id: true, email: true, role: true, full_name: true, is_active: true },
     });
 };
 
-const requireFx4Admin = async (req, res) => {
-    const user = await loadUser(req);
-    if (!isFx4Admin(user)) {
+const isTenantAdmin = (user) => ['admin', 'director'].includes(user?.role);
+
+const requireFx4SuperAdmin = async (req, res) => {
+    const user = await loadCentralOrTenantUser(req);
+    if (!user?.is_active || !isFx4SuperAdmin(user)) {
         res.status(403).json({ error: 'Acesso restrito ao painel SaaS FX4.' });
         return null;
     }
@@ -126,7 +144,7 @@ const resolveManageableTenant = async (req, res) => {
     const assistedSlug = req.headers['x-fx4-tenant-slug'] || req.headers['x-tenant-slug'];
 
     if (assistedSlug) {
-        const user = await requireFx4Admin(req, res);
+        const user = await requireFx4SuperAdmin(req, res);
         if (!user) return null;
 
         const tenant = await findTenantBySlugOrHost(assistedSlug);
@@ -157,7 +175,7 @@ const resolveManageableTenant = async (req, res) => {
     }
 
     const user = await loadTenantUser(req, tenant);
-    if (!user?.is_active || !isFx4Admin(user)) {
+    if (!user?.is_active || !isTenantAdmin(user)) {
         res.status(403).json({ error: 'Configuração restrita a administradores do cliente.' });
         return null;
     }
@@ -228,7 +246,7 @@ exports.context = async (req, res) => {
 };
 
 exports.bootstrap = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {
@@ -250,7 +268,7 @@ exports.bootstrap = async (req, res) => {
 };
 
 exports.listTenants = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {
@@ -262,7 +280,7 @@ exports.listTenants = async (req, res) => {
 };
 
 exports.createTenant = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {
@@ -350,7 +368,7 @@ exports.createTenant = async (req, res) => {
 };
 
 exports.updateTenant = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {
@@ -644,7 +662,7 @@ exports.updateTenantSettings = async (req, res) => {
 };
 
 exports.listPlans = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {
@@ -659,7 +677,7 @@ exports.listPlans = async (req, res) => {
 };
 
 exports.listAuditLogs = async (req, res) => {
-    const user = await requireFx4Admin(req, res);
+    const user = await requireFx4SuperAdmin(req, res);
     if (!user) return;
 
     try {

@@ -12,11 +12,12 @@ import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCa
 import TaoTransferCard from '@/components/settings/TaoTransferCard';
 import PluginDownloadsGuide from '@/components/settings/PluginDownloadsGuide';
 import { useAuth } from '@/lib/AuthContext';
+import { isFx4SuperAdmin } from '@/lib/superAdmin';
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const { user, assistedTenant } = useAuth();
-  const isCentralFx4Mode = user?.role === 'admin' && !assistedTenant;
+  const isCentralFx4Mode = isFx4SuperAdmin(user) && !assistedTenant;
   const [clientLogoUrl, setClientLogoUrl] = useState('');
   const [tenantSettings, setTenantSettings] = useState({
     primary_domain: '',

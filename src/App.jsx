@@ -8,6 +8,7 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { isFx4SuperAdmin } from '@/lib/superAdmin';
 import SSOCallback from './pages/SSOCallback';
 import AccessBlocked from './pages/AccessBlocked';
 import TaoDeepLink from './pages/TaoDeepLink';
@@ -22,7 +23,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isAuthenticated, user } = useAuth();
   const location = useLocation();
 
   if (isLoadingAuth) {
@@ -63,9 +64,13 @@ const AuthenticatedApp = () => {
             key={path}
             path={`/${path}`}
             element={
+              path === 'SaasAdmin' && !isFx4SuperAdmin(user) ? (
+                <Navigate to="/" replace />
+              ) : (
               <LayoutWrapper currentPageName={path}>
                 <Page />
               </LayoutWrapper>
+              )
             }
           />
         )
