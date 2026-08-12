@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import PermissionsManager from '@/components/PermissionsManager';
-import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon, KeyRound, ShieldCheck, UserCircle, Globe2, Download, FileCode2 } from 'lucide-react';
+import { Settings as SettingsIcon, Calculator, Save, ShieldAlert, List as LogsIcon, KeyRound, ShieldCheck, UserCircle, Globe2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import IntegrationSettingsCard from '@/components/settings/IntegrationSettingsCard';
 import TaoTransferCard from '@/components/settings/TaoTransferCard';
+import PluginDownloadsGuide from '@/components/settings/PluginDownloadsGuide';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function Settings() {
@@ -293,39 +294,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="border-indigo-100 bg-indigo-50/60 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-indigo-900">
-              <FileCode2 className="h-5 w-5 text-indigo-700" />
-              Webpart SharePoint FXTAO
-            </CardTitle>
-            <CardDescription>
-              Baixe o pacote SPFx para instalar no catálogo de aplicativos do SharePoint e conectar páginas de obra aos dados do FXTAO.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-indigo-950">
-              <p className="font-medium">Pacote: fxtao-work-page.sppkg</p>
-              <p className="text-indigo-700">Use no SharePoint Admin Center e aprove a permissão da API FX TAO.</p>
-            </div>
-            <Button asChild className="bg-indigo-700 hover:bg-indigo-800">
-              <a href="/downloads/fxtao-work-page.sppkg" download>
-                <Download className="mr-2 h-4 w-4" /> Baixar webpart
-              </a>
-            </Button>
-          </CardContent>
-          <CardContent className="flex flex-col gap-3 border-t border-indigo-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-indigo-950">
-              <p className="font-medium">Plugin WordPress: fxtao-public-map.zip</p>
-              <p className="text-indigo-700">Componente de mapa de obras ativas para páginas WordPress, com token protegido no servidor.</p>
-            </div>
-            <Button asChild variant="outline" className="border-indigo-200 bg-white text-indigo-800 hover:bg-indigo-100">
-              <a href="/downloads/fxtao-public-map.zip" download>
-                <Download className="mr-2 h-4 w-4" /> Baixar plugin WordPress
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
+        <PluginDownloadsGuide />
 
         <Card className="border-blue-100 bg-blue-50/60 shadow-sm">
           <CardContent className="flex items-start gap-3 pt-6 text-sm text-blue-900">
