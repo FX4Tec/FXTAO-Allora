@@ -21,7 +21,7 @@ const REPORT_BLOCKS = [
   { id: 'dados-iniciais', title: 'Dados iniciais', subtitle: 'Identificação, responsáveis e endereços' },
   { id: 'faturamento', title: 'Faturamento', subtitle: 'Cadastro fiscal e documentos' },
   { id: 'contratacao', title: 'Contratação', subtitle: 'Modelo comercial e rotina financeira' },
-  { id: 'financeiro-restrito', title: 'Financeiro restrito', subtitle: 'Campos sensíveis Allora', restricted: true },
+  { id: 'financeiro-restrito', title: 'Financeiro restrito', subtitle: 'Campos sensíveis da TAO', restricted: true },
   { id: 'operacional', title: 'Operacional', subtitle: 'Checklist inicial de obra' },
   { id: 'outros', title: 'Outros', subtitle: 'Documentos, anexos e aprovação' },
 ];
@@ -289,7 +289,7 @@ export default function ReportViewer({ taos = [] }) {
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700">Visualizar Relatório</p>
             <p className="text-sm text-slate-500">
-              Documento executivo alinhado ao formulário Allora, pronto para leitura em tela, impressão e PDF.
+              Documento executivo alinhado ao formulário FXTAO SaaS, pronto para leitura em tela, impressão e PDF.
             </p>
           </div>
           <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
@@ -331,7 +331,7 @@ export default function ReportViewer({ taos = [] }) {
                 <div className="space-y-1">
                   <p className="text-[32px] font-semibold tracking-tight text-slate-400">FX TAO</p>
                   <p className="text-xs font-semibold uppercase tracking-[0.34em] text-blue-700">
-                    Relatório executivo Allora
+                    Relatório executivo FXTAO
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -339,7 +339,7 @@ export default function ReportViewer({ taos = [] }) {
                     {selectedSummary?.project_name || 'Relatório da Obra'}
                   </h2>
                   <p className="max-w-3xl text-sm leading-7 text-slate-600">
-                    Documento consolidado com a nova estrutura da TAO Allora, organizado por blocos operacionais e pronto para apresentação.
+                    Documento consolidado com a estrutura consolidada da TAO, organizado por blocos operacionais e pronto para apresentação.
                   </p>
                 </div>
               </div>
@@ -400,7 +400,7 @@ export default function ReportViewer({ taos = [] }) {
                 <ReportField label="Sigla/nome da obra" value={tao.project_name} />
                 <ReportField label="Codigo da obra" value={tao.erp_number} />
                 <ReportField label="CENTRO DE CUSTO" value={tao.center_cost_client} />
-                <ReportField label="Codigo centro de custo Allora" value={tao.center_cost_allora} />
+                <ReportField label="Código centro de custo" value={tao.center_cost_allora} />
                 <ReportField label="Projeto #" value={tao.project_code} />
                 <ReportField label="Nº Proposta" value={tao.proposal_number} />
                 <ReportField label="Empresa" value={tao.company_code} />
@@ -459,7 +459,7 @@ export default function ReportViewer({ taos = [] }) {
               </div>
 
               <div className="space-y-4">
-                <SubsectionTitle title="Documentação para faturamento direto" description="Itens consolidados da nova estrutura Allora para cliente PF e cliente PJ." />
+                <SubsectionTitle title="Documentação para faturamento direto" description="Itens consolidados da estrutura consolidada para cliente PF e cliente PJ." />
                 <DataTable
                   emptyMessage="Nenhum item de documentação disponível."
                   rows={documentRows}
@@ -512,7 +512,7 @@ export default function ReportViewer({ taos = [] }) {
               <DocumentSection
                 number="4"
                 title="Financeiro restrito"
-                description="Campos sensíveis da Allora exibidos somente para usuários autorizados."
+                description="Campos sensíveis da TAO exibidos somente para usuários autorizados."
               >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <ReportField label="% ADM sobre orcamento" value={formatPercentValue(tao.restricted_admin_percent)} />
@@ -545,12 +545,12 @@ export default function ReportViewer({ taos = [] }) {
             <DocumentSection
               number={canViewRestricted ? '5' : '4'}
               title="Operacional registro de obra"
-              description="Checklist inicial consolidado conforme a estrutura da planilha operacional Allora."
+              description="Checklist inicial consolidado conforme a estrutura operacional consolidada."
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <ReportField label="Cliente" value={tao.project_name} />
                 <ReportField label="Empresa" value={tao.company_code} />
-                <ReportField label="Centro de custo Allora" value={tao.center_cost_allora} />
+                <ReportField label="Centro de custo" value={tao.center_cost_allora} />
                 <ReportField label="Necessidade de CNO" value={formatBooleanValue(tao.requires_cno)} />
                 <ReportField label="CNO Nº" value={tao.obra_cno} />
                 <ReportField label="SFOBRAS" value={tao.obra_sfobras} />

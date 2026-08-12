@@ -57,7 +57,7 @@ const BASE_COLUMN_DEFINITIONS = [
     { key: 'project_name', label: 'Sigla/nome da obra', kind: 'field', field: 'project_name', type: 'string', requiredForCreate: true },
     { key: 'erp_number', label: 'Codigo da obra', kind: 'field', field: 'erp_number', type: 'string' },
     { key: 'center_cost_client', label: 'CENTRO DE CUSTO', kind: 'field', field: 'center_cost_client', type: 'string' },
-    { key: 'center_cost_allora', label: 'Codigo centro de custo Allora', kind: 'field', field: 'center_cost_allora', type: 'string' },
+    { key: 'center_cost_allora', label: 'Codigo centro de custo', kind: 'field', field: 'center_cost_allora', type: 'string' },
     { key: 'project_code', label: 'Projeto #', kind: 'field', field: 'project_code', type: 'string' },
     { key: 'proposal_number', label: 'Nº Proposta', kind: 'field', field: 'proposal_number', type: 'string' },
     { key: 'company_code', label: 'Empresa', kind: 'field', field: 'company_code', type: 'string' },
@@ -875,7 +875,7 @@ exports.downloadTemplate = async (req, res) => {
         const columns = getVisibleColumns(allowRestricted);
         const rows = buildTemplateRows(allowRestricted);
         const fileBuffer = await createSheetBuffer(rows, format, columns);
-        const fileName = `fxtao-mascara-importacao-allora.${format}`;
+        const fileName = `fxtao-mascara-importacao-tao.${format}`;
 
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.setHeader(
@@ -913,7 +913,7 @@ exports.exportData = async (req, res) => {
 
         const rows = buildExportRows(taos, allowRestricted);
         const fileBuffer = await createSheetBuffer(rows.length ? rows : buildTemplateRows(allowRestricted), format, columns);
-        const fileName = `fxtao-export-allora-${new Date().toISOString().slice(0, 10)}.${format}`;
+        const fileName = `fxtao-export-tao-${new Date().toISOString().slice(0, 10)}.${format}`;
 
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.setHeader(

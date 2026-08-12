@@ -326,7 +326,7 @@ export default function Settings() {
         <Card className="border-blue-100 bg-blue-50/60 shadow-sm">
           <CardContent className="flex items-start gap-3 pt-6 text-sm text-blue-900">
             <UserCircle className="mt-0.5 h-5 w-5" />
-            <p>Como administrador central, o menu fica limitado a Configurações e Painel SaaS FX4. O acesso aos dados de Allora, CYMZ ou outro cliente acontece somente por ação explícita de acesso assistido.</p>
+            <p>Como administrador central, o menu fica limitado a Configurações e Painel SaaS FX4. O acesso aos dados de qualquer cliente acontece somente por ação explícita de acesso assistido.</p>
           </CardContent>
         </Card>
       </div>

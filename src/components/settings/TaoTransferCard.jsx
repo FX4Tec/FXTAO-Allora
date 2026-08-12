@@ -159,7 +159,7 @@ export default function TaoTransferCard() {
           </CardTitle>
         </HoverCard>
         <CardDescription>
-          Gere a máscara de importação, exporte TAOs e importe a estrutura Allora completa em uma linha por obra, com contatos, colaboradores, checklist inicial e documentação de faturamento.
+          Gere a máscara de importação, exporte TAOs e importe a estrutura FXTAO SaaS consolidada em uma linha por obra, com contatos, colaboradores, checklist inicial e documentação de faturamento.
         </CardDescription>
       </CardHeader>
 

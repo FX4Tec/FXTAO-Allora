@@ -200,7 +200,7 @@ export default function Users() {
                                 <div className="space-y-1">
                                     <Label htmlFor="can_view_restricted_tao_fields">Pode consultar dados restritos da TAO</Label>
                                     <p className="text-xs text-slate-500">
-                                        Libera a aba de financeiro restrito e os dados sensíveis vinculados ao fork Allora.
+                                        Libera a aba de financeiro restrito e os dados sensíveis da TAO para clientes SaaS autorizados.
                                     </p>
                                 </div>
                             </div>
