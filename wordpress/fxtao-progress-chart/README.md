@@ -12,7 +12,7 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 ## Configuração
 
 1. Informe `URL base da API`: `https://fxtao.fx4.com.br/api/public`.
-   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.3.4` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
+   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.3.5` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
    - Não use a URL do portal sem `/api/public` em versões anteriores, pois o WordPress tentará ler HTML como JSON.
 2. Informe o `Slug do cliente`, por exemplo `cinci`.
 3. Informe a `Obra padrão`: ID, ERP, slug público ou nome da obra.
@@ -52,7 +52,8 @@ Use `fxtao_progress_chart_grafico` quando quiser somente o gráfico, sem título
 - `compacto="true"`: reduz padding, altura das barras e espaçamentos para encaixar melhor em páginas institucionais.
 - `mostrar_zeros="true"`: exibe tópicos com `0%` de forma discreta. Use `false` para ocultar tópicos zerados.
 - `altura="420px"`: compacta linhas, fontes e espaçamentos para caber na altura informada. Use `auto` para altura natural.
-- `mostrar_titulo="true"`: exibe o título com tipografia própria do plugin. No shortcode `fxtao_progress_chart_grafico`, o padrão é `false`.
+- `mostrar_titulo="true"`: exibe o título com tipografia própria do plugin. No shortcode `fxtao_progress_chart_grafico`, o padrão é `false`, mas este atributo força o título dentro do cartão.
+- `titulo_visivel`, `exibir_titulo` e `show_title`: aliases opcionais para compatibilidade; se informados, sobrescrevem `mostrar_titulo`.
 
 ## Segurança
 

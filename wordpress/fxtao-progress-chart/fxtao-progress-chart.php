@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.3.4
+ * Version: 1.3.5
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.3.4'
+            '1.3.5'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.3.4',
+            '1.3.5',
             true
         );
     }
@@ -282,7 +282,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.4',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.5',
             ],
         ]);
 
@@ -340,7 +340,9 @@ final class FXTAO_Progress_Chart_Plugin
             'atualizacao_minutos' => $settings['refresh_minutes'],
             'fxtao_url' => $settings['fxtao_url'],
             'mostrar_titulo' => $chartOnly ? 'false' : 'true',
-            'titulo_visivel' => $chartOnly ? 'false' : 'true',
+            'titulo_visivel' => '',
+            'exibir_titulo' => '',
+            'show_title' => '',
             'rodape' => $chartOnly ? 'false' : 'true',
             'botao' => $chartOnly ? 'false' : ($settings['show_refresh_button'] ? 'true' : 'false'),
             'link' => $chartOnly ? 'false' : 'true',
@@ -354,6 +356,13 @@ final class FXTAO_Progress_Chart_Plugin
         wp_enqueue_style('fxtao-progress-chart');
         wp_enqueue_script('fxtao-progress-chart');
 
+        $showTitle = self::booleanAttribute($atts['mostrar_titulo'], !$chartOnly);
+        foreach (['titulo_visivel', 'exibir_titulo', 'show_title'] as $titleAlias) {
+            if ($atts[$titleAlias] !== '') {
+                $showTitle = self::booleanAttribute($atts[$titleAlias], $showTitle);
+            }
+        }
+
         $elementId = 'fxtao-progress-chart-' . wp_generate_uuid4();
         $config = [
             'endpoint' => esc_url_raw(rest_url(self::REST_NAMESPACE . '/progress')),
@@ -363,8 +372,7 @@ final class FXTAO_Progress_Chart_Plugin
             'chartType' => sanitize_key($atts['tipo']),
             'title' => sanitize_text_field($atts['titulo']),
             'refreshMinutes' => max(1, absint($atts['atualizacao_minutos'])),
-            'showTitle' => self::booleanAttribute($atts['mostrar_titulo'], true)
-                && self::booleanAttribute($atts['titulo_visivel'], true),
+            'showTitle' => $showTitle,
             'showFooter' => self::booleanAttribute($atts['rodape'], true),
             'showRefreshButton' => self::booleanAttribute($atts['botao'], (bool)$settings['show_refresh_button']),
             'showLink' => self::booleanAttribute($atts['link'], true),
