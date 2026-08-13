@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.2.1
+ * Version: 1.3.0
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.2.1'
+            '1.3.0'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.2.1',
+            '1.3.0',
             true
         );
     }
@@ -207,7 +207,10 @@ final class FXTAO_Progress_Chart_Plugin
 [fxtao_progress_chart obra="APARTAMENTO LG"]
 [fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
 [fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]
-[fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]</pre>
+[fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="true"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="false" altura="420px"]</pre>
+            <p><strong>Atributos visuais:</strong> <code>compacto</code> reduz espaçamentos, <code>mostrar_zeros</code> controla tópicos com 0%, e <code>altura</code> limita o bloco com rolagem interna.</p>
         </div>
         <?php
     }
@@ -278,7 +281,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.2.1',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.0',
             ],
         ]);
 
@@ -341,6 +344,10 @@ final class FXTAO_Progress_Chart_Plugin
             'botao' => $chartOnly ? 'false' : ($settings['show_refresh_button'] ? 'true' : 'false'),
             'link' => $chartOnly ? 'false' : 'true',
             'cartao' => $chartOnly ? 'false' : 'true',
+            'compacto' => $chartOnly ? 'true' : 'false',
+            'mostrar_zeros' => 'true',
+            'altura' => 'auto',
+            'tema' => 'default',
         ], $atts, 'fxtao_progress_chart');
 
         wp_enqueue_style('fxtao-progress-chart');
@@ -362,14 +369,37 @@ final class FXTAO_Progress_Chart_Plugin
             'showRefreshButton' => self::booleanAttribute($atts['botao'], (bool)$settings['show_refresh_button']),
             'showLink' => self::booleanAttribute($atts['link'], true),
             'card' => self::booleanAttribute($atts['cartao'], true),
+            'compact' => self::booleanAttribute($atts['compacto'], $chartOnly),
+            'showZeros' => self::booleanAttribute($atts['mostrar_zeros'], true),
+            'height' => self::sanitizeHeight($atts['altura']),
+            'theme' => sanitize_key($atts['tema']) ?: 'default',
             'fxtaoUrl' => esc_url_raw($atts['fxtao_url']),
         ];
 
+        $classes = ['fxtao-progress-chart'];
+        if ($config['compact']) {
+            $classes[] = 'fxtao-progress-chart--compact';
+        }
+        if ($config['theme']) {
+            $classes[] = 'fxtao-progress-chart--theme-' . $config['theme'];
+        }
+
         return sprintf(
-            '<div id="%1$s" class="fxtao-progress-chart" data-config="%2$s"><div class="fxtao-progress-loading">Carregando evolução da obra...</div></div>',
+            '<div id="%1$s" class="%2$s" data-config="%3$s"><div class="fxtao-progress-loading">Carregando evolução da obra...</div></div>',
             esc_attr($elementId),
+            esc_attr(implode(' ', $classes)),
             esc_attr(wp_json_encode($config))
         );
+    }
+
+    private static function sanitizeHeight($value): string
+    {
+        $value = trim((string)$value);
+        if ($value === '' || strtolower($value) === 'auto') {
+            return 'auto';
+        }
+
+        return preg_match('/^\d+(px|vh|rem|em|%)$/', $value) ? $value : 'auto';
     }
 
     private static function booleanAttribute($value, bool $fallback): bool

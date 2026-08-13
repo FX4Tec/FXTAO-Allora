@@ -1,5 +1,9 @@
 (function () {
   const clamp = (value) => Math.min(100, Math.max(0, Number(value || 0)));
+  const wrapperClass = (config) => [
+    config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card',
+    config.compact ? 'fxtao-progress-card--compact' : '',
+  ].filter(Boolean).join(' ');
 
   const endpointUrl = (config, refresh) => {
     const params = new URLSearchParams({
@@ -28,22 +32,38 @@
     return `${config.ajaxEndpoint}?${params.toString()}`;
   };
 
-  const renderBar = (items) => `
-    <div class="fxtao-progress-bars">
-      ${items.map((item) => {
+  const renderBar = (items, config) => {
+    const visibleItems = config.showZeros === false
+      ? items.filter((item) => clamp(item.percentage) > 0)
+      : items;
+
+    if (!visibleItems.length) {
+      return '<p class="fxtao-progress-empty">Nenhum tópico com percentual publicado para esta obra.</p>';
+    }
+
+    const heightStyle = config.height && config.height !== 'auto'
+      ? `max-height:${escapeHtml(config.height)};overflow:auto;`
+      : '';
+
+    return `
+    <div class="fxtao-progress-bars" style="${heightStyle}">
+      ${visibleItems.map((item) => {
         const percent = clamp(item.percentage);
+        const percentLabel = `${percent}%`;
+        const rowClass = percent === 0 ? ' fxtao-progress-row--zero' : '';
         return `
-          <div class="fxtao-progress-row">
-            <span class="fxtao-progress-label">${escapeHtml(item.topic)}</span>
-            <div class="fxtao-progress-track">
+          <div class="fxtao-progress-row${rowClass}">
+            <div class="fxtao-progress-label" title="${escapeHtml(item.topic)}">${escapeHtml(item.topic)}</div>
+            <div class="fxtao-progress-track" role="img" aria-label="${escapeHtml(item.topic)}: ${percentLabel}">
               <div class="fxtao-progress-fill" style="width:${percent}%"></div>
-              <span class="fxtao-progress-value">${percent}</span>
+              <span class="fxtao-progress-value">${percentLabel}</span>
             </div>
           </div>
         `;
       }).join('')}
     </div>
   `;
+  };
 
   const renderVertical = (items) => `
     <div class="fxtao-progress-vertical">
@@ -83,17 +103,16 @@
     const items = payload?.data?.items || [];
     const title = payload?.title || config.title || 'Evolução da Obra';
     const chartType = payload?.chart_type || config.chartType || 'bar';
-    const wrapperClass = config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card';
     const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(title)}</h2>`;
     const footerMarkup = config.showFooter === false ? '' : renderFooter(config, payload);
 
     if (!items.length) {
-      element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}<p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${footerMarkup}</div>`;
+      element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}<p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${footerMarkup}</div>`;
       return;
     }
 
-    const body = chartType === 'vertical' ? renderVertical(items) : chartType === 'donut' ? renderDonut(items) : renderBar(items);
-    element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}${body}${footerMarkup}</div>`;
+    const body = chartType === 'vertical' ? renderVertical(items) : chartType === 'donut' ? renderDonut(items) : renderBar(items, config);
+    element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}${body}${footerMarkup}</div>`;
   };
 
   const renderFooter = (config, payload) => {
@@ -117,10 +136,9 @@
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
       renderChart(element, payload, config);
     } catch (error) {
-      const wrapperClass = config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card';
       const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(config.title || 'Evolução da Obra')}</h2>`;
       const footerMarkup = config.showFooter === false ? '' : renderFooter(config, null);
-      element.innerHTML = `<div class="${wrapperClass}">${titleMarkup}<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}</div>`;
+      element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}</div>`;
     } finally {
       element.classList.remove('is-loading');
     }

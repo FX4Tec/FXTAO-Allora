@@ -1,16 +1,27 @@
 .fxtao-progress-chart {
   --fxtao-progress-color: #8b341f;
-  --fxtao-progress-soft: #f3e7e2;
-  font-family: inherit;
+  --fxtao-progress-color-soft: rgba(139, 52, 31, 0.12);
+  --fxtao-progress-text: #1f2933;
+  --fxtao-progress-muted: #667085;
+  --fxtao-progress-grid: rgba(17, 24, 39, 0.08);
+  color: var(--fxtao-progress-text);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  max-width: 100%;
+  width: 100%;
+}
+
+.fxtao-progress-card,
+.fxtao-progress-body {
+  box-sizing: border-box;
   width: 100%;
 }
 
 .fxtao-progress-card {
   background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
-  padding: clamp(24px, 5vw, 56px);
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+  padding: clamp(22px, 3vw, 40px);
 }
 
 .fxtao-progress-body {
@@ -20,63 +31,110 @@
   padding: 0;
 }
 
+.fxtao-progress-card--compact {
+  padding: clamp(16px, 2.2vw, 28px);
+}
+
 .fxtao-progress-card h2,
 .fxtao-progress-body h2 {
-  color: inherit;
-  font: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  margin: 0 0 24px;
+  color: var(--fxtao-progress-text);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: clamp(26px, 4vw, 48px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0 0 clamp(18px, 3vw, 34px);
   text-align: center;
+}
+
+.fxtao-progress-card--compact h2 {
+  font-size: clamp(24px, 3vw, 38px);
+  margin-bottom: 22px;
 }
 
 .fxtao-progress-bars {
   display: grid;
-  gap: 8px;
+  gap: 9px;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 4px 0;
 }
 
 .fxtao-progress-row {
   align-items: center;
   display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(140px, 260px) 1fr;
+  gap: 14px;
+  grid-template-columns: minmax(150px, 240px) minmax(0, 1fr);
+  min-height: 28px;
 }
 
 .fxtao-progress-label {
-  color: #2b2b2b;
-  font-size: 15px;
+  color: var(--fxtao-progress-text);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: clamp(13px, 1vw, 15px);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
   text-align: right;
+  text-overflow: ellipsis;
+  white-space: normal;
 }
 
 .fxtao-progress-track {
-  background: linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px);
-  background-size: 10% 100%;
-  border-left: 1px solid #333;
-  min-height: 32px;
+  background:
+    linear-gradient(90deg, var(--fxtao-progress-grid) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.10), rgba(17, 24, 39, 0.10));
+  background-size: 10% 100%, 1px 100%;
+  background-repeat: repeat, no-repeat;
+  border-left: 1px solid rgba(17, 24, 39, 0.40);
+  border-radius: 0 7px 7px 0;
+  height: 28px;
+  min-width: 0;
   position: relative;
 }
 
 .fxtao-progress-fill {
   background: var(--fxtao-progress-color);
-  height: 32px;
-  min-width: 1px;
+  border-radius: 0 6px 6px 0;
+  height: 100%;
+  min-width: 0;
 }
 
 .fxtao-progress-value {
-  color: #fff;
-  font-size: 15px;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
   position: absolute;
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
 }
 
+.fxtao-progress-row--zero .fxtao-progress-track {
+  background:
+    linear-gradient(90deg, var(--fxtao-progress-grid) 1px, transparent 1px),
+    var(--fxtao-progress-color-soft);
+  background-size: 10% 100%, auto;
+}
+
+.fxtao-progress-row--zero .fxtao-progress-fill {
+  min-width: 2px;
+  opacity: 0.65;
+}
+
+.fxtao-progress-row--zero .fxtao-progress-value {
+  color: var(--fxtao-progress-muted);
+  left: 8px;
+  right: auto;
+}
+
 .fxtao-progress-vertical {
   align-items: end;
   display: flex;
   gap: 18px;
-  min-height: 360px;
+  min-height: 320px;
   overflow-x: auto;
 }
 
@@ -91,9 +149,11 @@
 
 .fxtao-progress-column-track {
   align-items: end;
-  background: var(--fxtao-progress-soft);
+  background: var(--fxtao-progress-color-soft);
+  border-radius: 8px 8px 0 0;
   display: flex;
-  height: 260px;
+  height: 240px;
+  overflow: hidden;
   width: 100%;
 }
 
@@ -103,7 +163,7 @@
 }
 
 .fxtao-progress-column span {
-  color: #333;
+  color: var(--fxtao-progress-text);
   font-size: 13px;
   text-align: center;
 }
@@ -111,14 +171,14 @@
 .fxtao-progress-donut-wrap {
   align-items: center;
   display: grid;
-  gap: 32px;
-  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 28px;
+  grid-template-columns: minmax(200px, 280px) 1fr;
 }
 
 .fxtao-progress-donut {
   align-items: center;
   aspect-ratio: 1;
-  background: conic-gradient(var(--fxtao-progress-color) calc(var(--progress) * 1%), var(--fxtao-progress-soft) 0);
+  background: conic-gradient(var(--fxtao-progress-color) calc(var(--progress) * 1%), var(--fxtao-progress-color-soft) 0);
   border-radius: 999px;
   display: flex;
   justify-content: center;
@@ -134,40 +194,41 @@
 }
 
 .fxtao-progress-donut span {
-  color: #111;
-  font-size: 44px;
+  color: var(--fxtao-progress-text);
+  font-size: 40px;
   font-weight: 800;
   position: relative;
   z-index: 1;
 }
 
 .fxtao-progress-donut-items p {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
   display: flex;
   justify-content: space-between;
   margin: 0;
-  padding: 10px 0;
+  padding: 9px 0;
 }
 
 .fxtao-progress-footer {
   align-items: center;
-  border-top: 1px solid #eee;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
-  margin-top: 32px;
-  padding-top: 16px;
+  margin-top: 24px;
+  padding-top: 14px;
 }
 
 .fxtao-progress-footer a,
 .fxtao-progress-refresh {
   background: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(17, 24, 39, 0.14);
   border-radius: 8px;
   color: #1f2937;
   cursor: pointer;
   display: inline-block;
+  font: inherit;
   margin-left: 8px;
   padding: 8px 12px;
   text-decoration: none;
@@ -175,13 +236,17 @@
 
 .fxtao-progress-error {
   color: #b91c1c;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px;
   text-align: center;
 }
 
 .fxtao-progress-empty,
 .fxtao-progress-loading {
-  color: #64748b;
-  padding: 32px;
+  color: var(--fxtao-progress-muted);
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px;
+  padding: 24px;
   text-align: center;
 }
 

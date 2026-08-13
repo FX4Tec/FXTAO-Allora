@@ -12,7 +12,7 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 ## Configuração
 
 1. Informe `URL base da API`: `https://fxtao.fx4.com.br/api/public`.
-   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.2.1` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
+   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.3.0` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
    - Não use a URL do portal sem `/api/public` em versões anteriores, pois o WordPress tentará ler HTML como JSON.
 2. Informe o `Slug do cliente`, por exemplo `cinci`.
 3. Informe a `Obra padrão`: ID, ERP, slug público ou nome da obra.
@@ -40,9 +40,18 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 [fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar" mostrar_titulo="false" rodape="false" botao="false" link="false" cartao="false"]
 [fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
 [fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" atualizacao_minutos="1"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="true"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="false" altura="420px"]
 ```
 
 Use `fxtao_progress_chart_grafico` quando quiser somente o gráfico, sem título, cartão, rodapé, botão ou link.
+
+### Atributos visuais
+
+- `compacto="true"`: reduz padding, altura das barras e espaçamentos para encaixar melhor em páginas institucionais.
+- `mostrar_zeros="true"`: exibe tópicos com `0%` de forma discreta. Use `false` para ocultar tópicos zerados.
+- `altura="420px"`: limita a altura do gráfico e ativa rolagem interna quando houver muitos tópicos. Use `auto` para altura natural.
+- `mostrar_titulo="true"`: exibe o título com tipografia própria do plugin. No shortcode `fxtao_progress_chart_grafico`, o padrão é `false`.
 
 ## Segurança
 
