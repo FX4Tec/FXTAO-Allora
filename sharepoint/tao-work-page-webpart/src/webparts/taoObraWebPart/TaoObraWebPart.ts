@@ -5,7 +5,8 @@ import {
   type IPropertyPaneConfiguration,
   PropertyPaneSlider,
   PropertyPaneTextField,
-  PropertyPaneToggle
+  PropertyPaneToggle,
+  PropertyPaneDropdown
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import TaoObra from './components/TaoObra';
@@ -32,6 +33,18 @@ export interface ITaoObraWebPartProps {
   panelBackgroundImageUrl: string;
   panelBackgroundUseImage: boolean;
   panelBackgroundOpacity: number;
+  layoutMode: string;
+  showHeader: boolean;
+  showPortalLink: boolean;
+  transparentShell: boolean;
+  fieldAlignment: string;
+  fieldLabelWidth: number;
+  fieldFontSize: number;
+  fieldLineHeight: number;
+  fieldGap: number;
+  contentPadding: number;
+  maxWidth: number;
+  customCss: string;
 }
 
 export default class TaoObraWebPart extends BaseClientSideWebPart<ITaoObraWebPartProps> {
@@ -48,6 +61,18 @@ export default class TaoObraWebPart extends BaseClientSideWebPart<ITaoObraWebPar
       visibleFieldsCsv: this.properties.visibleFieldsCsv || '',
       hiddenFieldsCsv: this.properties.hiddenFieldsCsv || '',
       fieldsJson: this.properties.fieldsJson || '',
+      layoutMode: this.properties.layoutMode || 'classic',
+      showHeader: this.properties.showHeader !== false,
+      showPortalLink: this.properties.showPortalLink !== false,
+      transparentShell: this.properties.transparentShell === true,
+      fieldAlignment: this.properties.fieldAlignment || 'left',
+      fieldLabelWidth: this.properties.fieldLabelWidth ?? 118,
+      fieldFontSize: this.properties.fieldFontSize ?? 14,
+      fieldLineHeight: this.properties.fieldLineHeight ?? 1.35,
+      fieldGap: this.properties.fieldGap ?? 10,
+      contentPadding: this.properties.contentPadding ?? 24,
+      maxWidth: this.properties.maxWidth ?? 0,
+      customCss: this.properties.customCss || '',
       headerBackgroundColor: this.properties.headerBackgroundColor || '#263547',
       headerTextColor: this.properties.headerTextColor || '#ffffff',
       headerAccentColor: this.properties.headerAccentColor || '#f5b94d',
@@ -85,6 +110,7 @@ export default class TaoObraWebPart extends BaseClientSideWebPart<ITaoObraWebPar
             PropertyPaneTextField('taoPortalBaseUrl', { label: 'URL do portal FX TAO (opcional)' }),
             PropertyPaneToggle('showStatus', { label: 'Exibir status da TAO' }),
             PropertyPaneToggle('showCostCenters', { label: 'Exibir centros de custo' }),
+            PropertyPaneToggle('showPortalLink', { label: 'Exibir link para abrir o FX TAO', onText: 'Sim', offText: 'Não' }),
             PropertyPaneSlider('refreshMinutes', { label: 'Atualização automática (minutos)', min: 0, max: 60, step: 5, showValue: true })
           ]
         }, {
@@ -109,6 +135,30 @@ export default class TaoObraWebPart extends BaseClientSideWebPart<ITaoObraWebPar
         }, {
           groupName: 'Visual',
           groupFields: [
+            PropertyPaneDropdown('layoutMode', {
+              label: 'Modo de layout',
+              options: [
+                { key: 'classic', text: 'Clássico / cartão atual' },
+                { key: 'overlay', text: 'Overlay transparente / Seiji' },
+                { key: 'minimal', text: 'Minimalista sem cabeçalho' }
+              ]
+            }),
+            PropertyPaneToggle('showHeader', { label: 'Exibir cabeçalho interno da webpart', onText: 'Sim', offText: 'Não' }),
+            PropertyPaneToggle('transparentShell', { label: 'Remover borda, fundo e sombra externos', onText: 'Sim', offText: 'Não' }),
+            PropertyPaneDropdown('fieldAlignment', {
+              label: 'Alinhamento dos campos',
+              options: [
+                { key: 'left', text: 'Esquerda' },
+                { key: 'center', text: 'Centralizado' },
+                { key: 'right', text: 'Direita' }
+              ]
+            }),
+            PropertyPaneSlider('fieldFontSize', { label: 'Tamanho da fonte dos campos (px)', min: 12, max: 44, step: 1, showValue: true }),
+            PropertyPaneSlider('fieldLineHeight', { label: 'Altura da linha dos campos', min: 1, max: 2, step: 0.05, showValue: true }),
+            PropertyPaneSlider('fieldGap', { label: 'Espaço entre linhas (px)', min: 0, max: 28, step: 1, showValue: true }),
+            PropertyPaneSlider('fieldLabelWidth', { label: 'Largura dos rótulos no modo clássico (px)', min: 0, max: 260, step: 10, showValue: true }),
+            PropertyPaneSlider('contentPadding', { label: 'Padding interno (px)', min: 0, max: 80, step: 4, showValue: true }),
+            PropertyPaneSlider('maxWidth', { label: 'Largura máxima do bloco (px, 0 = total)', min: 0, max: 1200, step: 20, showValue: true }),
             PropertyPaneTextField('headerBackgroundColor', { label: 'Cor do cabeçalho', placeholder: '#263547' }),
             PropertyPaneTextField('headerTextColor', { label: 'Cor do texto do cabeçalho', placeholder: '#ffffff' }),
             PropertyPaneTextField('headerAccentColor', { label: 'Cor de destaque do cabeçalho', placeholder: '#f5b94d' }),
@@ -117,7 +167,14 @@ export default class TaoObraWebPart extends BaseClientSideWebPart<ITaoObraWebPar
             PropertyPaneTextField('panelBackgroundColor', { label: 'Cor de fundo do quadro', placeholder: '#ffffff' }),
             PropertyPaneToggle('panelBackgroundUseImage', { label: 'Usar imagem no fundo do quadro' }),
             PropertyPaneTextField('panelBackgroundImageUrl', { label: 'URL da imagem de fundo', placeholder: 'https://...' }),
-            PropertyPaneSlider('panelBackgroundOpacity', { label: 'Transparência do fundo (%)', min: 0, max: 100, step: 5, showValue: true })
+            PropertyPaneSlider('panelBackgroundOpacity', { label: 'Transparência do fundo (%)', min: 0, max: 100, step: 5, showValue: true }),
+            PropertyPaneTextField('customCss', {
+              label: 'CSS customizado do bloco',
+              description: 'Opcional. Use seletores do componente para ajustes finos de tipografia, espaçamento e fundo.',
+              multiline: true,
+              resizable: true,
+              rows: 6
+            })
           ]
         }]
       }]

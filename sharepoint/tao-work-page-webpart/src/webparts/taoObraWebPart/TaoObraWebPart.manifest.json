@@ -3,21 +3,14 @@
   "id": "3f2e7f25-611d-4deb-92fe-45317e8f978d",
   "alias": "TaoWorkPageWebPart",
   "componentType": "WebPart",
-
-  // The "*" signifies that the version should be taken from the package.json
   "version": "*",
   "manifestVersion": 2,
-
-  // If true, the component can only be installed on sites where Custom Script is allowed.
-  // Components that allow authors to embed arbitrary script code should set this to true.
-  // https://support.office.com/en-us/article/Turn-scripting-capabilities-on-or-off-1f2c515f-5d7e-448a-9fd7-835da935584f
   "requiresCustomScript": false,
   "supportedHosts": ["SharePointWebPart", "TeamsPersonalApp", "TeamsTab", "SharePointFullPage"],
   "supportsThemeVariants": true,
-
   "preconfiguredEntries": [
     {
-      "groupId": "5c03119e-3074-46fd-976b-c60198311f70", // Advanced
+      "groupId": "5c03119e-3074-46fd-976b-c60198311f70",
       "group": { "default": "Advanced" },
       "title": { "default": "FX TAO - Página da Obra" },
       "description": { "default": "Apresenta os dados da obra selecionada diretamente do FX TAO." },
@@ -28,9 +21,33 @@
         "apiBaseUrl": "",
         "apiResourceUri": "",
         "taoPortalBaseUrl": "",
-        "showGallery": true,
+        "showStatus": false,
         "showCostCenters": true,
-        "refreshMinutes": 15
+        "showPortalLink": true,
+        "refreshMinutes": 15,
+        "visibleFieldsCsv": "",
+        "hiddenFieldsCsv": "",
+        "fieldsJson": "",
+        "layoutMode": "classic",
+        "showHeader": true,
+        "transparentShell": false,
+        "fieldAlignment": "left",
+        "fieldLabelWidth": 118,
+        "fieldFontSize": 14,
+        "fieldLineHeight": 1.35,
+        "fieldGap": 10,
+        "contentPadding": 24,
+        "maxWidth": 0,
+        "customCss": "",
+        "headerBackgroundColor": "#263547",
+        "headerTextColor": "#ffffff",
+        "headerAccentColor": "#f5b94d",
+        "dataTextColor": "#20242a",
+        "dataLabelColor": "#69727d",
+        "panelBackgroundColor": "#ffffff",
+        "panelBackgroundImageUrl": "",
+        "panelBackgroundUseImage": false,
+        "panelBackgroundOpacity": 85
       }
     }
   ]

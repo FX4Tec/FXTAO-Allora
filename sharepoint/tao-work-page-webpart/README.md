@@ -211,3 +211,99 @@ npm start
 ```
 
 Chamadas com `AadHttpClient` exigem contexto autenticado do SharePoint; não use segredo ou token fixo para contornar a autenticação.
+
+## 11. Modo flexível / Layout Seiji
+
+A partir da versão `1.1.0`, a mesma Web Part mantém o layout clássico e adiciona modos flexíveis sem quebrar páginas existentes.
+
+### Propriedades novas
+
+| Propriedade | Campo interno | Uso |
+| --- | --- | --- |
+| Modo de layout | `layoutMode` | `classic`, `overlay` ou `minimal` |
+| Exibir cabeçalho interno | `showHeader` | Desative para layouts sobre imagem/fundo da página |
+| Exibir link para abrir o FX TAO | `showPortalLink` | Desative para páginas públicas/institucionais |
+| Remover borda, fundo e sombra externos | `transparentShell` | Remove o cartão externo da webpart |
+| Alinhamento dos campos | `fieldAlignment` | `left`, `center` ou `right` |
+| Largura dos rótulos | `fieldLabelWidth` | Usado no modo clássico/grid |
+| Tamanho da fonte | `fieldFontSize` | Fonte dos campos em px |
+| Altura da linha | `fieldLineHeight` | Espaçamento vertical relativo |
+| Espaço entre linhas | `fieldGap` | Espaçamento horizontal/linhas em px |
+| Padding interno | `contentPadding` | Espaçamento interno do bloco |
+| Largura máxima | `maxWidth` | `0` usa a largura total; outro valor limita em px |
+| CSS customizado | `customCss` | Ajustes finos por CSS quando necessário |
+
+### Setup para reproduzir o layout Seiji
+
+Use estas propriedades:
+
+| Campo | Valor |
+| --- | --- |
+| Modo de layout | `Overlay transparente / Seiji` |
+| Exibir cabeçalho interno | `Não` |
+| Exibir link para abrir o FX TAO | `Não` |
+| Remover borda, fundo e sombra externos | `Sim` |
+| Alinhamento dos campos | `Centralizado` |
+| Tamanho da fonte dos campos | `31` |
+| Altura da linha dos campos | `1.32` |
+| Espaço entre linhas | `0` |
+| Padding interno | `0` ou `8` |
+| Largura máxima | `0` ou a largura desejada |
+| Cor dos valores dos dados | `#ffffff` |
+| Cor dos rótulos dos dados | `#ffffff` |
+| Cor de fundo do quadro | `#000000` |
+| Transparência do fundo | `0` para transparente quando a página já possui imagem/fundo |
+
+Campos visíveis CSV:
+
+```text
+erpNumber,companyCostCenters,companyName,architecture,street,areaM2,contractMonths,startDate,endDate
+```
+
+JSON de campos:
+
+```json
+[
+  { "key": "erpNumber", "label": "N° ERP", "enabled": true },
+  { "key": "companyCostCenters", "label": "C.C. Associados", "enabled": true },
+  { "key": "companyName", "label": "Gerenciadora", "fallback": "-", "enabled": true },
+  { "key": "architecture", "label": "Arquitetura", "enabled": true },
+  { "key": "street", "label": "Localização", "enabled": true },
+  { "key": "areaM2", "label": "Área Construída", "enabled": true },
+  { "key": "contractMonths", "label": "Prazo Contratual", "type": "dateDiffMonths", "from": "startDate", "to": "endDate", "suffix": "meses", "enabled": true },
+  { "key": "startDate", "label": "Data de Início", "enabled": true },
+  { "key": "endDate", "label": "Data de Finalização", "enabled": true }
+]
+```
+
+### Campos manuais e calculados
+
+O `fieldsJson` aceita campos adicionais sem alterar o modelo da TAO.
+
+Campo manual:
+
+```json
+{ "label": "Gerenciadora", "type": "manual", "value": "-", "enabled": true }
+```
+
+Campo calculado por datas:
+
+```json
+{ "key": "contractMonths", "label": "Prazo Contratual", "type": "dateDiffMonths", "from": "startDate", "to": "endDate", "suffix": "meses", "enabled": true }
+```
+
+Campo por template:
+
+```json
+{ "label": "Endereço", "type": "template", "template": "{street} - {cityState}", "fallback": "-", "enabled": true }
+```
+
+### Versionamento de downloads
+
+O FXTAO SaaS passa a disponibilizar:
+
+- `fxtao-work-page.sppkg`: versão atual recomendada.
+- `fxtao-work-page-1.1.0.sppkg`: versão flexível com modo overlay.
+- `fxtao-work-page-1.0.0.sppkg`: versão clássica compatível com o modelo atual.
+
+A versão `1.1.0` preserva a mesma solution ID e Web Part ID, portanto atualiza o pacote sem exigir recriar as Web Parts existentes. Páginas antigas continuam no layout clássico porque os novos campos têm defaults compatíveis.

@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/accordion';
 
 const SHAREPOINT_PACKAGE_URL = '/downloads/fxtao-work-page.sppkg';
+const SHAREPOINT_PACKAGE_VERSIONS = [
+  { label: 'v1.1 - Flexível / Overlay Seiji', url: '/downloads/fxtao-work-page-1.1.0.sppkg' },
+  { label: 'v1.0 - Clássica', url: '/downloads/fxtao-work-page-1.0.0.sppkg' },
+];
 const WORDPRESS_PLUGIN_URL = '/downloads/fxtao-public-map.zip';
 const WORDPRESS_PROGRESS_PLUGIN_URL = '/downloads/fxtao-progress-chart.zip';
 
@@ -45,9 +49,17 @@ export default function PluginDownloadsGuide() {
           </div>
           <Button asChild className="w-full bg-indigo-700 hover:bg-indigo-800">
             <a href={SHAREPOINT_PACKAGE_URL} download>
-              <Download className="mr-2 h-4 w-4" /> Baixar webpart SharePoint
+              <Download className="mr-2 h-4 w-4" /> Baixar webpart atual
             </a>
           </Button>
+          <div className="mt-3 space-y-2 text-xs">
+            <p className="font-semibold text-slate-700">Versões compatíveis</p>
+            {SHAREPOINT_PACKAGE_VERSIONS.map((version) => (
+              <a key={version.url} href={version.url} download className="block rounded-lg border border-indigo-100 px-3 py-2 text-indigo-800 hover:bg-indigo-50">
+                {version.label}
+              </a>
+            ))}
+          </div>
         </div>
 
         <div className="rounded-xl border border-indigo-100 bg-white p-4">
@@ -162,7 +174,38 @@ export default function PluginDownloadsGuide() {
                 ]} />
               </div>
               <div>
-                <p className="mb-2 text-sm font-semibold text-slate-900">7. Campos das propriedades da webpart</p>
+                <p className="mb-2 text-sm font-semibold text-slate-900">7. Setup para layout Seiji / overlay transparente</p>
+                <StepList steps={[
+                  'Em Modo de layout, selecione Overlay transparente / Seiji.',
+                  'Desative Exibir cabeçalho interno da webpart.',
+                  'Desative Exibir link para abrir o FX TAO.',
+                  'Ative Remover borda, fundo e sombra externos.',
+                  'Em Alinhamento dos campos, selecione Centralizado.',
+                  'Use Tamanho da fonte entre 28 e 34 px; para o exemplo Seiji, use 31 px.',
+                  'Use Altura da linha entre 1.25 e 1.35; para o exemplo Seiji, use 1.32.',
+                  'Use Padding interno 0 a 12 px quando a página já tiver imagem/fundo próprio.',
+                  'Configure Cor dos valores dos dados e Cor dos rótulos dos dados como #ffffff.',
+                  'Em Cor de fundo do quadro, use #000000 e Transparência do fundo 0 quando quiser fundo totalmente transparente.',
+                ]} />
+                <div className="mt-3 rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100">
+                  <p>Campos visíveis CSV:</p>
+                  <p>erpNumber,companyCostCenters,companyName,architecture,street,areaM2,contractMonths,startDate,endDate</p>
+                  <p className="mt-3">JSON de campos para o modelo Seiji:</p>
+                  <p>[</p>
+                  <p>{'{'}"key":"erpNumber","label":"N° ERP","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"companyCostCenters","label":"C.C. Associados","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"companyName","label":"Gerenciadora","fallback":"-","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"architecture","label":"Arquitetura","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"street","label":"Localização","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"areaM2","label":"Área Construída","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"contractMonths","label":"Prazo Contratual","type":"dateDiffMonths","from":"startDate","to":"endDate","suffix":"meses","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"startDate","label":"Data de Início","enabled":true{'}'},</p>
+                  <p>{'{'}"key":"endDate","label":"Data de Finalização","enabled":true{'}'}</p>
+                  <p>]</p>
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">8. Campos das propriedades da webpart</p>
                 <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
                   <div className="rounded-lg border bg-white p-3">
                     <p><strong>Título</strong>: texto exibido no cabeçalho da webpart.</p>

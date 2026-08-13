@@ -12,6 +12,18 @@ export interface ITaoObraProps {
   visibleFieldsCsv: string;
   hiddenFieldsCsv: string;
   fieldsJson: string;
+  layoutMode: string;
+  showHeader: boolean;
+  showPortalLink: boolean;
+  transparentShell: boolean;
+  fieldAlignment: string;
+  fieldLabelWidth: number;
+  fieldFontSize: number;
+  fieldLineHeight: number;
+  fieldGap: number;
+  contentPadding: number;
+  maxWidth: number;
+  customCss: string;
   headerBackgroundColor: string;
   headerTextColor: string;
   headerAccentColor: string;
