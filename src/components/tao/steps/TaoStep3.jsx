@@ -278,36 +278,6 @@ export default function TaoStep3({ taoData, updateTao, canEdit }) {
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-          <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Histórico de Alterações</CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-3">
-            {(taoData.logs || []).slice(0, 8).map((log) => (
-              <div key={log.id} className="rounded-lg border border-slate-200 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold uppercase text-slate-700">{log.action}</span>
-                  <span className="text-xs text-slate-500">
-                    {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : '-'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {log.user_email || 'sistema'}
-                </div>
-                <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-700 bg-slate-50 rounded-md p-3 overflow-auto">
-                  {JSON.stringify(log.details, null, 2)}
-                </pre>
-              </div>
-            ))}
-
-            {(!taoData.logs || taoData.logs.length === 0) && (
-              <div className="text-sm text-slate-500">Nenhum histórico registrado ainda.</div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       <Card className="border-slate-200 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
         <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Aditivos</CardTitle>
@@ -422,6 +392,36 @@ export default function TaoStep3({ taoData, updateTao, canEdit }) {
           <span className="font-medium opacity-90">TOTAL DE ADITIVOS</span>
           <span className="text-xl font-bold">R$ {toBRL(totalAdditives)}</span>
         </CardFooter>
+      </Card>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+          <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Histórico de Alterações</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="space-y-3">
+            {(taoData.logs || []).slice(0, 8).map((log) => (
+              <div key={log.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold uppercase text-slate-700">{log.action}</span>
+                  <span className="text-xs text-slate-500">
+                    {log.created_at ? format(new Date(log.created_at), 'dd/MM/yyyy HH:mm') : '-'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {log.user_email || 'sistema'}
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-700 bg-slate-50 rounded-md p-3 overflow-auto">
+                  {JSON.stringify(log.details, null, 2)}
+                </pre>
+              </div>
+            ))}
+
+            {(!taoData.logs || taoData.logs.length === 0) && (
+              <div className="text-sm text-slate-500">Nenhum histórico registrado ainda.</div>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Status Change Modal */}

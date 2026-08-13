@@ -437,11 +437,6 @@ const validateTaoSiengePayload = (payload = {}) => {
                 error.statusCode = 400;
                 throw error;
             }
-            if (!payload.financial_business_area_id) {
-                const error = new Error('Área de negócio é obrigatória para TAO Obra e Centro de Custo.');
-                error.statusCode = 400;
-                throw error;
-            }
             if (!primaryCostCenters.length) {
                 const error = new Error('Centro de custo principal é obrigatório para TAO Obra e Centro de Custo.');
                 error.statusCode = 400;

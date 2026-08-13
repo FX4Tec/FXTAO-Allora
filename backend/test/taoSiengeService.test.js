@@ -20,22 +20,33 @@ test('permite criar TAO somente obra sem empresa financeira', () => {
     });
 });
 
-test('exige empresa, area de negocio e centro de custo principal para obra e centro de custo', () => {
+test('nao exige area de negocio para obra e centro de custo', () => {
+    assert.doesNotThrow(() => {
+        validateTaoSiengePayload({
+            registration_type: 'OBRA_E_CENTRO_CUSTO',
+            project_name: 'Residencial Cedro',
+            responsible_company_id: 'company_1',
+            cost_centers: [
+                {
+                    cost_center_code: 'CC-01',
+                    name: 'Centro Principal',
+                    is_primary: true,
+                },
+            ],
+        });
+    });
+});
+
+test('exige empresa e centro de custo principal para obra e centro de custo', () => {
     assert.throws(
         () =>
             validateTaoSiengePayload({
                 registration_type: 'OBRA_E_CENTRO_CUSTO',
                 project_name: 'Residencial Cedro',
                 responsible_company_id: 'company_1',
-                cost_centers: [
-                    {
-                        cost_center_code: 'CC-01',
-                        name: 'Centro Principal',
-                        is_primary: true,
-                    },
-                ],
+                cost_centers: [],
             }),
-        /Área de negócio é obrigatória/
+        /Centro de custo principal é obrigatório/
     );
 });
 

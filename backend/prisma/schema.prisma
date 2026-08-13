@@ -374,6 +374,9 @@ model Tao {
   tax_deduction_signal_value            Decimal? @db.Decimal(15, 2)
   tax_contractual_retention_percent     Decimal? @db.Decimal(5, 2)
   tax_contractual_retention_value       Decimal? @db.Decimal(15, 2)
+  tax_cbs_percent                       Decimal? @db.Decimal(5, 2)
+  tax_ibs_percent                       Decimal? @db.Decimal(5, 2)
+  split_payment_enabled                 Boolean  @default(false)
 
   // Sienge Engineering
   engineering_supply_services_table String?
@@ -395,6 +398,10 @@ model Tao {
   compose_financial_availability   Boolean?
   export_to_client_portal          Boolean?
   financial_responsible_name       String?
+  financial_construction_company_text String?
+  financial_business_area_text        String?
+  default_financial_bank_account_text String?
+  billing_issue_bank_account_text     String?
 
   // Sienge Fiscal
   is_ret_regime                    Boolean?

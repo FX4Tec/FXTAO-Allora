@@ -3,17 +3,18 @@ import api from '@/services/api';
 import { useQuery } from '@tanstack/react-query';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Calculator, Unlock } from 'lucide-react';
+import { Calculator, Info, Unlock } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const CLIENT_PORTAL_LINKS_PLACEHOLDER = "https://portal.cliente/empreendimento";
 
 const AREA_MEASURE_OPTIONS = ['m2', 'ha', 'unidade'];
-const APPROPRIATION_LEVEL_OPTIONS = ['obra', 'bloco', 'torre', 'unidade'];
+const APPROPRIATION_LEVEL_OPTIONS = ['Obra', 'Célula construtiva', 'Etapa', 'Subetapa', 'Serviço'];
 const ENTERPRISE_NATURE_OPTIONS = ['Incorporação', 'Construção por Administração', 'Loteamento', 'Outro'];
 const REAL_ESTATE_UNIT_OPTIONS = ['Apartamento', 'Casa', 'Sala Comercial', 'Lote', 'Outro'];
 
@@ -111,59 +112,27 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
     updateTao({ ...taoData, [field]: value });
   };
 
-  const handleNestedPayloadChange = (payloadKey, field, value) => {
-    updateTao({
-      ...taoData,
-      [payloadKey]: {
-        ...(taoData[payloadKey] || {}),
-        [field]: value,
-      },
-    });
-  };
+  const financialConstructionCompanyText =
+    taoData.financial_construction_company_text ??
+    taoData.financial_company_payload?.legal_name ??
+    taoData.financial_company?.legal_name ??
+    '';
 
-  const toggleAuthorizedBankAccount = (bankAccountId, checked) => {
-    const currentIds = Array.isArray(taoData.authorized_bank_account_ids)
-      ? taoData.authorized_bank_account_ids
-      : [];
+  const financialBusinessAreaText =
+    taoData.financial_business_area_text ??
+    taoData.financial_business_area_payload?.name ??
+    taoData.financial_business_area?.name ??
+    '';
 
-    const nextIds = checked
-      ? Array.from(new Set([...currentIds, bankAccountId]))
-      : currentIds.filter((id) => id !== bankAccountId);
+  const defaultFinancialBankAccountText =
+    taoData.default_financial_bank_account_text ??
+    taoData.default_financial_bank_account?.description ??
+    '';
 
-    handleChange('authorized_bank_account_ids', nextIds);
-  };
-
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const res = await api.get('/resources/companies');
-      return res.data || [];
-    }
-  });
-
-  const { data: businessAreas = [] } = useQuery({
-    queryKey: ['businessAreas'],
-    queryFn: async () => {
-      const res = await api.get('/resources/business-areas');
-      return res.data || [];
-    }
-  });
-
-  const { data: costCenterCategories = [] } = useQuery({
-    queryKey: ['costCenterCategories'],
-    queryFn: async () => {
-      const res = await api.get('/resources/cost-center-categories');
-      return res.data || [];
-    }
-  });
-
-  const { data: bankAccounts = [] } = useQuery({
-    queryKey: ['bankAccounts'],
-    queryFn: async () => {
-      const res = await api.get('/resources/bank-accounts');
-      return res.data || [];
-    }
-  });
+  const billingIssueBankAccountText =
+    taoData.billing_issue_bank_account_text ??
+    taoData.billing_issue_bank_account?.description ??
+    '';
 
   const handleAutoCalculation = () => {
     if (!isAuto || !globalSettings || !taoData.value_total_contract) return;
@@ -212,6 +181,12 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
       handleAutoCalculation();
     }
   }, [taoData.calculation_mode, taoData.value_total_contract, globalSettings]);
+
+  useEffect(() => {
+    if (!taoData.appropriation_level) {
+      handleChange('appropriation_level', 'Serviço');
+    }
+  }, [taoData.appropriation_level]);
 
   // Helper for currency formatting (display only)
   const formatCurrency = (value) => {
@@ -479,39 +454,127 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* RIGHT COLUMN: Contract Values & OME */}
-        <div className="lg:col-span-5 space-y-6">
-
-          {/* OME Section */}
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-              <CardTitle className="text-sm font-bold text-indigo-700 uppercase">OME - Ordem de Modificação de Escopo</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-indigo-700 uppercase">
+                Reforma Tributária
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-indigo-600">
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                      <DialogTitle>Reforma Tributária e Split Payment</DialogTitle>
+                    </DialogHeader>
+                    <div className="max-h-[70vh] space-y-4 overflow-y-auto text-sm leading-6 text-slate-700">
+                      <p>Pela Reforma Tributária (EC 132/2023 e regulamentação posterior), o IVA brasileiro será um IVA Dual, composto por dois tributos principais:</p>
+                      <div>
+                        <p className="font-semibold text-slate-900">CBS (Contribuição sobre Bens e Serviços)</p>
+                        <p>Competência da União (governo federal). Substitui principalmente PIS e Cofins.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">IBS (Imposto sobre Bens e Serviços)</p>
+                        <p>Competência compartilhada entre estados e municípios. Substitui ICMS e ISS.</p>
+                      </div>
+                      <p>Além deles, existe o Imposto Seletivo (IS), que não faz parte do IVA e incidirá sobre produtos considerados prejudiciais à saúde ou ao meio ambiente.</p>
+                      <div>
+                        <p className="font-semibold text-slate-900">Cronograma de entrada em vigor</p>
+                        <p>2026: fase de teste com alíquotas reduzidas da CBS e IBS.</p>
+                        <p>2027: CBS passa a ser cobrada efetivamente e PIS/Cofins são extintos.</p>
+                        <p>2029 a 2032: transição gradual de ICMS e ISS para o IBS.</p>
+                        <p>2033: sistema plenamente implantado.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">E o Split Payment?</p>
+                        <p>O split payment é o mecanismo que separa automaticamente o valor do imposto no momento do pagamento da operação, enviando a parcela do IBS e da CBS diretamente ao Fisco.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">Situação atual (agosto/2026)</p>
+                        <p>O plano inicial era começar junto com CBS e IBS em janeiro de 2027. Porém, o Comitê Gestor do IBS informou que o split payment não estará pronto em janeiro de 2027, devido à complexidade de implementação e à necessidade de adaptação do sistema financeiro.</p>
+                        <p>A previsão divulgada é que, quando entrar em operação, ele comece de forma opcional e inicialmente para operações B2B (entre empresas).</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">Resumo executivo</p>
+                        <p>IVA = CBS (Federal) + IBS (Estados e Municípios). CBS entra efetivamente em 2027. IBS substitui gradualmente ICMS e ISS até 2033. Split payment foi adiado e não entrará em vigor em janeiro de 2027; ainda não há uma data oficial definitiva para sua obrigatoriedade.</p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
               <div className="space-y-1">
-                <Label>Procedimento será:</Label>
+                <Label>CBS %</Label>
                 <Input
-                  value={taoData.ome_procedure || ''}
-                  onChange={(e) => handleChange('ome_procedure', e.target.value)}
+                  type="number"
+                  step="0.01"
+                  value={taoData.tax_cbs_percent ?? ''}
+                  onChange={(e) => handleChange('tax_cbs_percent', e.target.value ? Number(e.target.value) : null)}
+                  disabled={!canEdit}
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <Label>Faturamento:</Label>
-                <Switch
-                  checked={taoData.ome_billing_company || false}
-                  onCheckedChange={(checked) => handleChange('ome_billing_company', checked)}
+              <div className="space-y-1">
+                <Label>IBS %</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={taoData.tax_ibs_percent ?? ''}
+                  onChange={(e) => handleChange('tax_ibs_percent', e.target.value ? Number(e.target.value) : null)}
+                  disabled={!canEdit}
                 />
-                <span className="text-sm text-slate-600">{taoData.ome_billing_company ? 'Empresa' : 'Outro'}</span>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <div>
+                  <Label>Split Payment</Label>
+                  <p className="text-xs text-slate-500">{taoData.split_payment_enabled ? 'Ativo' : 'Postergado'}</p>
+                </div>
+                <Switch
+                  checked={taoData.split_payment_enabled || false}
+                  onCheckedChange={(value) => handleChange('split_payment_enabled', value)}
+                  disabled={!canEdit}
+                />
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* RIGHT COLUMN: Contract Values */}
+        <div className="lg:col-span-5 space-y-6">
 
           {/* Contract Values */}
           <Card className="border-slate-200 shadow-sm bg-slate-50/30">
             <CardHeader className="pb-3 border-b border-slate-100">
-              <CardTitle className="text-sm font-bold text-indigo-700 uppercase">Valores do Contrato</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-sm font-bold text-indigo-700 uppercase">
+                Valores do Contrato
+                {isAuto && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-indigo-600">
+                        <Info className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Fórmula do cálculo automático</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 text-sm leading-6 text-slate-700">
+                        <p>Base de cálculo: Valor total da venda / contrato.</p>
+                        <p>ISS Rec. Empresa = total × {globalSettings?.default_iss_percent ?? 0}%.</p>
+                        <p>INSS Rec. Empresa = total × {globalSettings?.default_inss_percent ?? 0}%.</p>
+                        <p>PIS = total × {globalSettings?.default_pis_percent ?? 0}%.</p>
+                        <p>COFINS = total × {globalSettings?.default_cofins_percent ?? 0}%.</p>
+                        <p>CSLL = total × {globalSettings?.default_csll_percent ?? 0}%.</p>
+                        <p>IR = total × {globalSettings?.default_ir_percent ?? 0}%.</p>
+                        <p>Fat. Empresa Consultoria = total × {globalSettings?.default_consultancy_split_percent ?? 0}%.</p>
+                        <p>Fat. Empresa Construções = total × {globalSettings?.default_construction_split_percent ?? 0}%.</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
 
@@ -663,7 +726,7 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
               <div className="space-y-1">
                 <Label>Nível de Apropriação</Label>
                 <Select
-                  value={taoData.appropriation_level || ''}
+                  value={taoData.appropriation_level || 'Serviço'}
                   onValueChange={(value) => handleChange('appropriation_level', value)}
                   disabled={!canEdit}
                 >
@@ -749,108 +812,30 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="space-y-1">
-              <Label>Empresa Financeira Responsável</Label>
-              <Select
-                value={taoData.financial_company_id || ''}
-                onValueChange={(value) => updateTao({
-                  ...taoData,
-                  financial_company_id: value,
-                  financial_company_payload: {},
-                })}
+              <Label>Empresa Construtora</Label>
+              <Input
+                value={financialConstructionCompanyText}
+                onChange={(e) => handleChange('financial_construction_company_text', e.target.value)}
+                placeholder="Digite a empresa construtora"
                 disabled={!canEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma empresa..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>{company.legal_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>Nova Empresa Financeira</Label>
-                <Input
-                  value={taoData.financial_company_payload?.legal_name || ''}
-                  onChange={(e) => handleNestedPayloadChange('financial_company_payload', 'legal_name', e.target.value)}
-                  placeholder="Preencha se não existir"
-                  disabled={!canEdit}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Documento</Label>
-                <Input
-                  value={taoData.financial_company_payload?.document || ''}
-                  onChange={(e) => handleNestedPayloadChange('financial_company_payload', 'document', e.target.value)}
-                  disabled={!canEdit}
-                />
-              </div>
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Área de Negócio</Label>
-                <Select
-                  value={taoData.financial_business_area_id || ''}
-                  onValueChange={(value) => updateTao({
-                    ...taoData,
-                    financial_business_area_id: value,
-                    financial_business_area_payload: {},
-                  })}
-                  disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {businessAreas.map((area) => (
-                      <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Nova Área de Negócio</Label>
                 <Input
-                  value={taoData.financial_business_area_payload?.name || ''}
-                  onChange={(e) => handleNestedPayloadChange('financial_business_area_payload', 'name', e.target.value)}
-                  placeholder="Preencha se não existir"
+                  value={financialBusinessAreaText}
+                  onChange={(e) => handleChange('financial_business_area_text', e.target.value)}
+                  placeholder="Digite a área de negócio"
                   disabled={!canEdit}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Categoria do Centro de Custo</Label>
-                <Select
-                  value={taoData.financial_cost_center_category_id || ''}
-                  onValueChange={(value) => updateTao({
-                    ...taoData,
-                    financial_cost_center_category_id: value,
-                    financial_cost_center_category_payload: {},
-                  })}
-                  disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {costCenterCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Nova Categoria</Label>
+                <Label>Responsável Financeiro</Label>
                 <Input
-                  value={taoData.financial_cost_center_category_payload?.name || ''}
-                  onChange={(e) => handleNestedPayloadChange('financial_cost_center_category_payload', 'name', e.target.value)}
-                  placeholder="Preencha se não existir"
+                  value={taoData.financial_responsible_name || ''}
+                  onChange={(e) => handleChange('financial_responsible_name', e.target.value)}
                   disabled={!canEdit}
                 />
               </div>
@@ -859,75 +844,22 @@ export default function TaoStep1({ taoData, updateTao, canEdit }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Conta Corrente Padrão</Label>
-                <Select
-                  value={taoData.default_financial_bank_account_id || ''}
-                  onValueChange={(value) => handleChange('default_financial_bank_account_id', value)}
+                <Input
+                  value={defaultFinancialBankAccountText}
+                  onChange={(e) => handleChange('default_financial_bank_account_text', e.target.value)}
+                  placeholder="Digite a conta corrente padrão"
                   disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>{account.description}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="space-y-1">
                 <Label>Conta para Emissão de Boletos</Label>
-                <Select
-                  value={taoData.billing_issue_bank_account_id || ''}
-                  onValueChange={(value) => handleChange('billing_issue_bank_account_id', value)}
+                <Input
+                  value={billingIssueBankAccountText}
+                  onChange={(e) => handleChange('billing_issue_bank_account_text', e.target.value)}
+                  placeholder="Digite a conta de boletos"
                   disabled={!canEdit}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>{account.description}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <Label>Contas Correntes Autorizadas</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {bankAccounts.map((account) => (
-                  <label key={account.id} className="flex items-start gap-2 rounded-lg border border-slate-200 p-3">
-                    <input
-                      type="checkbox"
-                      checked={(taoData.authorized_bank_account_ids || []).includes(account.id)}
-                      onChange={(e) => toggleAuthorizedBankAccount(account.id, e.target.checked)}
-                      disabled={!canEdit}
-                    />
-                    <span className="text-sm text-slate-700">{account.description}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
-                <Label>Compõe Disponível Financeiro</Label>
-                <Switch checked={taoData.compose_financial_availability || false} onCheckedChange={(value) => handleChange('compose_financial_availability', value)} disabled={!canEdit} />
-              </div>
-              <div className="rounded-lg border border-slate-200 p-3 flex items-center justify-between">
-                <Label>Exporta para Portal do Cliente</Label>
-                <Switch checked={taoData.export_to_client_portal || false} onCheckedChange={(value) => handleChange('export_to_client_portal', value)} disabled={!canEdit} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Responsável Financeiro</Label>
-              <Input
-                value={taoData.financial_responsible_name || ''}
-                onChange={(e) => handleChange('financial_responsible_name', e.target.value)}
-                disabled={!canEdit}
-              />
             </div>
           </CardContent>
         </Card>

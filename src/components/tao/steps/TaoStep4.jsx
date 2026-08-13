@@ -132,18 +132,6 @@ export default function TaoStep4({ taoData, updateTao, canEdit }) {
             </CardHeader>
             <CardContent className="p-6 space-y-2">
 
-              {/* Header Switch */}
-              <div className="flex items-center gap-4 mb-6 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                <Label className="font-bold text-indigo-900">Projetos Responsabilidade:</Label>
-                <Switch
-                  checked={taoData.ome_billing_company || false}
-                  onCheckedChange={(checked) => handleChange('ome_billing_company', checked)}
-                />
-                <span className="font-medium text-indigo-700">
-                  {taoData.ome_billing_company ? 'Empresa' : 'Cliente'}
-                </span>
-              </div>
-
               <ComplianceRow
                 label="Projeto Legal"
                 statusField="scope_project_legal_status"
