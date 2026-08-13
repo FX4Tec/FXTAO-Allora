@@ -113,7 +113,7 @@
         contentType = response.headers.get('content-type') || '';
       }
       const payload = contentType.includes('application/json') ? await response.json() : null;
-      if (!payload) throw new Error('Resposta inválida do WordPress/servidor. Verifique o proxy REST e o cache do site.');
+      if (!payload) throw new Error('Resposta inválida do WordPress/servidor. Limpe o cache do LiteSpeed/Cloudflare e reinstale o plugin atualizado.');
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
       renderChart(element, payload, config);
     } catch (error) {

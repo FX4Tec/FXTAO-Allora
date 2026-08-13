@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -52,7 +52,24 @@ final class FXTAO_Progress_Chart_Plugin
 
     private static function settings(): array
     {
-        return wp_parse_args(get_option(self::OPTION_KEY, []), self::defaultSettings());
+        $settings = wp_parse_args(get_option(self::OPTION_KEY, []), self::defaultSettings());
+        $settings['api_base_url'] = self::normalizeApiBaseUrl($settings['api_base_url']);
+        return $settings;
+    }
+
+    private static function normalizeApiBaseUrl($url): string
+    {
+        $url = rtrim((string)$url, '/');
+        if (!$url) {
+            return self::defaultSettings()['api_base_url'];
+        }
+
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        if ($path === '' || $path === '/') {
+            return $url . '/api/public';
+        }
+
+        return $url;
     }
 
     public static function registerAssets(): void
@@ -61,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.2.0'
+            '1.2.1'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.2.0',
+            '1.2.1',
             true
         );
     }
@@ -100,7 +117,7 @@ final class FXTAO_Progress_Chart_Plugin
         $chartType = sanitize_key($input['chart_type'] ?? $settings['chart_type']);
 
         return [
-            'api_base_url' => esc_url_raw(rtrim((string)($input['api_base_url'] ?? $settings['api_base_url']), '/')),
+            'api_base_url' => esc_url_raw(self::normalizeApiBaseUrl($input['api_base_url'] ?? $settings['api_base_url'])),
             'tenant_slug' => sanitize_key($input['tenant_slug'] ?? ''),
             'work_ref' => sanitize_text_field($input['work_ref'] ?? ''),
             'token' => sanitize_text_field($input['token'] ?? ''),
@@ -123,13 +140,17 @@ final class FXTAO_Progress_Chart_Plugin
         <div class="wrap fxtao-progress-admin">
             <h1>FXTAO Progress Chart</h1>
             <p>Configure o gráfico público de evolução da obra. O token fica salvo apenas no servidor WordPress.</p>
+            <p><strong>Atenção:</strong> a URL base deve apontar para a API pública. Se informar apenas o domínio do FXTAO, o plugin completa automaticamente com <code>/api/public</code>.</p>
 
             <form method="post" action="options.php">
                 <?php settings_fields('fxtao_progress_chart'); ?>
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row"><label for="fxtao_api_base_url">URL base da API</label></th>
-                        <td><input class="regular-text" id="fxtao_api_base_url" name="<?php echo esc_attr(self::OPTION_KEY); ?>[api_base_url]" value="<?php echo esc_attr($settings['api_base_url']); ?>" placeholder="https://fxtao.fx4.com.br/api/public" /></td>
+                        <td>
+                            <input class="regular-text" id="fxtao_api_base_url" name="<?php echo esc_attr(self::OPTION_KEY); ?>[api_base_url]" value="<?php echo esc_attr($settings['api_base_url']); ?>" placeholder="https://fxtao.fx4.com.br/api/public" />
+                            <p class="description">Valor correto: <code>https://fxtao.fx4.com.br/api/public</code>. Também aceita <code>https://fxtao.fx4.com.br</code> e normaliza automaticamente.</p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="fxtao_tenant_slug">Slug do cliente</label></th>
@@ -257,7 +278,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.1.1',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.2.1',
             ],
         ]);
 
@@ -265,7 +286,8 @@ final class FXTAO_Progress_Chart_Plugin
             return new WP_REST_Response([
                 'success' => false,
                 'message' => $response->get_error_message(),
-            ], 502);
+                'source' => 'wordpress_http',
+            ], 200);
         }
 
         $status = wp_remote_retrieve_response_code($response);
@@ -276,7 +298,8 @@ final class FXTAO_Progress_Chart_Plugin
                 'success' => false,
                 'message' => is_array($body) && !empty($body['message']) ? $body['message'] : 'Falha ao consultar FXTAO SaaS.',
                 'status' => $status,
-            ], 502);
+                'source' => 'fxtao_saas',
+            ], 200);
         }
 
         $payload = [

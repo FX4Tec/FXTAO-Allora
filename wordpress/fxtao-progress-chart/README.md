@@ -12,6 +12,8 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 ## Configuração
 
 1. Informe `URL base da API`: `https://fxtao.fx4.com.br/api/public`.
+   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.2.1` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
+   - Não use a URL do portal sem `/api/public` em versões anteriores, pois o WordPress tentará ler HTML como JSON.
 2. Informe o `Slug do cliente`, por exemplo `cinci`.
 3. Informe a `Obra padrão`: ID, ERP, slug público ou nome da obra.
 4. Cole o Bearer token gerado no FXTAO para o cliente de integração `Gráfico público de evolução da obra`.
@@ -37,6 +39,7 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 [fxtao_progress_chart tipo="donut" titulo="Resumo da Obra"]
 [fxtao_progress_chart cliente="cinci" obra="APARTAMENTO LG" tipo="bar" mostrar_titulo="false" rodape="false" botao="false" link="false" cartao="false"]
 [fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" atualizacao_minutos="1"]
 ```
 
 Use `fxtao_progress_chart_grafico` quando quiser somente o gráfico, sem título, cartão, rodapé, botão ou link.
