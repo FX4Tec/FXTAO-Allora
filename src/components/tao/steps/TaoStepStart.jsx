@@ -69,6 +69,14 @@ export default function TaoStepStart({ taoData, updateTao, bankAccounts, canEdit
     },
   });
 
+  const { data: businessAreas = [] } = useQuery({
+    queryKey: ['businessAreas'],
+    queryFn: async () => {
+      const res = await api.get('/resources/business-areas');
+      return res.data || [];
+    },
+  });
+
   const isLoadingLookups = isLoadingParentTaos;
 
   const currentCompanyPayload = {
@@ -100,6 +108,17 @@ export default function TaoStepStart({ taoData, updateTao, bankAccounts, canEdit
       client_id: null,
       client_payload: {
         ...currentClientPayload,
+        [field]: value,
+      },
+    });
+  };
+
+  const updateFinancialBusinessAreaPayload = (field, value) => {
+    updateTao({
+      ...taoData,
+      financial_business_area_id: null,
+      financial_business_area_payload: {
+        ...(taoData.financial_business_area_payload || {}),
         [field]: value,
       },
     });
@@ -485,6 +504,46 @@ export default function TaoStepStart({ taoData, updateTao, bankAccounts, canEdit
                 </SelectContent>
               </Select>
             </div>
+          )}
+
+          {taoData.registration_type === 'OBRA_E_CENTRO_CUSTO' && (
+            <Card className="border-amber-200 bg-amber-50/40 shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-amber-900">Dados financeiros obrigatórios para Obra e Centro de Custo</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Área de Negócio</Label>
+                  <Select
+                    value={taoData.financial_business_area_id || ''}
+                    onValueChange={(value) => updateTao({
+                      ...taoData,
+                      financial_business_area_id: value,
+                      financial_business_area_payload: {},
+                    })}
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a área de negócio..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {businessAreas.map((area) => (
+                        <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Nova Área de Negócio</Label>
+                  <Input
+                    value={taoData.financial_business_area_payload?.name || ''}
+                    onChange={(e) => updateFinancialBusinessAreaPayload('name', e.target.value)}
+                    placeholder="Preencha se a área ainda não existir"
+                    disabled={!canEdit}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
