@@ -87,54 +87,93 @@ export default function PluginDownloadsGuide() {
             <AccordionTrigger>Manual detalhado: deploy e configuração da webpart no SharePoint</AccordionTrigger>
             <AccordionContent className="space-y-4">
               <div>
-                <p className="mb-2 text-sm font-semibold text-slate-900">1. Instalação no catálogo de aplicativos</p>
+                <p className="mb-2 text-sm font-semibold text-slate-900">1. Registrar a API FX TAO API no Microsoft Entra</p>
+                <StepList steps={[
+                  'Acesse entra.microsoft.com com uma conta administradora do tenant Microsoft 365 do cliente.',
+                  'Abra Identity > Applications > App registrations e clique em New registration.',
+                  'Em Name, informe exatamente FX TAO API.',
+                  'Em Supported account types, selecione Accounts in this organizational directory only.',
+                  'Não informe Redirect URI neste registro; esta aplicação representa a API consumida pela webpart.',
+                  'Clique em Register e copie Application (client) ID e Directory (tenant) ID.',
+                  'Abra Expose an API e clique em Set no Application ID URI.',
+                  'Use o valor sugerido api://<Application Client ID> ou outro URI válido do tenant e guarde exatamente esse valor.',
+                  'Clique em Add a scope e crie o escopo delegado access_as_user.',
+                  'No escopo, use consentimento conforme política do cliente, descrição para acesso ao FXTAO e State como Enabled.',
+                  'Abra Manifest, confirme accessTokenAcceptedVersion como 2 e salve.',
+                  'Não crie Client Secret para esta webpart; o SPFx usa token delegado via AadHttpClient.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">2. Configurar a integração no FXTAO SaaS</p>
+                <StepList steps={[
+                  'No FXTAO SaaS, entre como superadmin FX4 e abra o cliente correto em Painel SaaS FX4.',
+                  'Clique em Abrir configurações do cliente e vá até Webpart SharePoint FXTAO.',
+                  'Habilite Integração da webpart habilitada.',
+                  'Preencha Tenant ID Microsoft da webpart com o Directory (tenant) ID copiado do Entra.',
+                  'Preencha Client ID da API FX TAO com o Application (client) ID do registro FX TAO API.',
+                  'Preencha Application ID URI com o mesmo valor definido em Expose an API, por exemplo api://<client-id>.',
+                  'Mantenha o escopo obrigatório como access_as_user.',
+                  'Em Origens SharePoint permitidas, informe somente a origem raiz, por exemplo https://empresa.sharepoint.com, sem /sites/...',
+                  'Deixe Client IDs SPFx permitidos vazio, salvo se houver necessidade formal de restringir clientes SPFx.',
+                  'Salve em Salvar Webpart SharePoint.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">3. Criar ou validar o catálogo de aplicativos SharePoint</p>
+                <StepList steps={[
+                  'Acesse o SharePoint Admin Center com uma conta administradora.',
+                  'Abra More features > Apps > App Catalog ou Active sites > App catalog, conforme a tela disponível.',
+                  'Se o tenant ainda não tiver catálogo, crie o App Catalog e aguarde o provisionamento.',
+                  'Abra a biblioteca Apps for SharePoint.',
+                  'Confirme que sua conta consegue enviar pacotes .sppkg.',
+                ]} />
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-900">4. Instalar ou atualizar a webpart no App Catalog</p>
                 <StepList steps={[
                   'Baixe o arquivo fxtao-work-page.sppkg pelo botão acima.',
-                  'Acesse o SharePoint Admin Center com uma conta administradora.',
-                  'Entre em More features > Apps > App Catalog. Se o tenant ainda não tiver catálogo, crie um.',
                   'Faça upload do arquivo fxtao-work-page.sppkg na biblioteca Apps for SharePoint.',
-                  'Quando solicitado, habilite a disponibilização do app para os sites necessários.',
+                  'Quando solicitado, disponibilize o app para os sites necessários.',
+                  'Se o pacote já existia antes da API FX TAO API estar correta, substitua ou reenvie o .sppkg.',
+                  'O pacote deve gerar a solicitação de permissão FX TAO API / access_as_user.',
                 ]} />
               </div>
               <div>
-                <p className="mb-2 text-sm font-semibold text-slate-900">2. Permissões Microsoft 365 / API</p>
+                <p className="mb-2 text-sm font-semibold text-slate-900">5. Aprovar a permissão da API no SharePoint</p>
                 <StepList steps={[
-                  'No FXTAO SaaS, entre no cliente correto pelo acesso assistido e abra Configurações > Webpart SharePoint FXTAO.',
-                  'Preencha Tenant ID Microsoft, Client ID da API, Application ID URI, escopo access_as_user e a origem SharePoint permitida.',
-                  'Salve e habilite a integração apenas após confirmar que a origem está correta, por exemplo https://empresa.sharepoint.com.',
-                  'No Microsoft Entra, confirme que o App Registration FX TAO API tem Application ID URI definido e escopo delegado access_as_user.',
-                  'No manifesto do aplicativo, confirme accessTokenAcceptedVersion como 2.',
                   'No SharePoint Admin Center, acesse Advanced > API access.',
-                  'Se houver solicitação antiga ou inválida, rejeite antes de reenviar o pacote .sppkg.',
-                  'Reenvie o pacote .sppkg no App Catalog para gerar a solicitação correta, se ela não aparecer.',
-                  'Aprove a permissão exibida para a API FX TAO, normalmente FX TAO API / access_as_user.',
-                  'Confirme no Microsoft Entra que o aplicativo usado pela API FXTAO aceita tokens do tenant correto.',
-                  'Valide que a URL do FXTAO SaaS do cliente está em HTTPS e autorizada nas configurações da webpart.',
+                  'Abra Pending requests e procure API name FX TAO API, pacote fxtao-work-page-client-side-solution e permissão access_as_user.',
+                  'Se houver solicitação antiga ou inválida, rejeite antes de reenviar o pacote corrigido.',
+                  'Selecione a solicitação correta e clique em Approve.',
+                  'Confirme que a permissão aparece em Approved requests.',
+                  'Se não houver solicitação pendente, confirme o escopo access_as_user no Entra e reenvie o .sppkg no App Catalog.',
                 ]} />
               </div>
               <div>
-                <p className="mb-2 text-sm font-semibold text-slate-900">3. Uso na página da obra</p>
+                <p className="mb-2 text-sm font-semibold text-slate-900">6. Usar na página da obra</p>
                 <StepList steps={[
                   'Abra a página SharePoint da obra e clique em Editar.',
-                  'Adicione a webpart FXTAO Obra.',
-                  'Configure a URL da API/portal FXTAO, por exemplo https://fxtao.fx4.com.br.',
-                  'Informe o identificador da obra: ID interno, ERP ou outro identificador aceito pela webpart.',
-                  'Publique a página e teste com um usuário autorizado do Microsoft 365.',
+                  'Adicione a webpart FX TAO - Página da Obra.',
+                  'Abra o painel de propriedades da webpart.',
+                  'Configure URL base da API FX TAO como https://fxtao.fx4.com.br.',
+                  'Informe o identificador da obra: ID interno da TAO, final curto do ID, código ERP ou código da obra.',
+                  'Informe URI do recurso Entra ID exatamente igual ao Application ID URI do Entra e do FXTAO SaaS.',
+                  'Publique a página e teste com um usuário Microsoft 365 autorizado no FXTAO.',
                 ]} />
               </div>
               <div>
-                <p className="mb-2 text-sm font-semibold text-slate-900">4. Campos das propriedades da webpart</p>
+                <p className="mb-2 text-sm font-semibold text-slate-900">7. Campos das propriedades da webpart</p>
                 <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
                   <div className="rounded-lg border bg-white p-3">
-                    <p><strong>Título</strong>: texto exibido no cabeçalho.</p>
-                    <p><strong>Código ERP, código da obra ou ID da TAO</strong>: identificador da obra.</p>
+                    <p><strong>Título</strong>: texto exibido no cabeçalho da webpart.</p>
+                    <p><strong>Código ERP, código da obra ou ID da TAO</strong>: identificador usado para localizar a obra.</p>
                     <p><strong>URL base da API FX TAO</strong>: https://fxtao.fx4.com.br.</p>
-                    <p><strong>URI do recurso Entra ID</strong>: Application ID URI cadastrado no Entra e no FXTAO.</p>
+                    <p><strong>URI do recurso Entra ID</strong>: Application ID URI do registro FX TAO API.</p>
                   </div>
                   <div className="rounded-lg border bg-white p-3">
-                    <p><strong>URL do portal FX TAO</strong>: link opcional para abrir a TAO completa.</p>
+                    <p><strong>URL do portal FX TAO</strong>: link opcional para abrir o portal ou URL direta do cliente.</p>
                     <p><strong>Exibir status da TAO</strong>: mostra/oculta o selo de status.</p>
-                    <p><strong>Exibir centros de custo</strong>: mostra/oculta os centros de custo publicados.</p>
+                    <p><strong>Exibir centros de custo</strong>: mostra/oculta centros publicados.</p>
                     <p><strong>Atualização automática</strong>: intervalo em minutos; zero desativa.</p>
                   </div>
                   <div className="rounded-lg border bg-white p-3 md:col-span-2">
@@ -144,6 +183,8 @@ export default function PluginDownloadsGuide() {
                     </p>
                   </div>
                   <div className="rounded-lg border bg-slate-950 p-3 font-mono text-xs text-slate-100 md:col-span-2">
+                    <p>Exemplo de Campos visíveis CSV: clientName,areaM2,segment,startDate,endDate</p>
+                    <p>Exemplo de Campos ocultos CSV: architecture,clientCode,companyCode</p>
                     <p>Exemplo de JSON de campos:</p>
                     <p>[{'{'}"key":"clientName","label":"Cliente","enabled":true{'}'}, {'{'}"key":"areaM2","label":"Área","enabled":true{'}'}]</p>
                   </div>
