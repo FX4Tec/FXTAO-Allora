@@ -38,8 +38,9 @@
   padding: clamp(16px, 2.2vw, 28px);
 }
 
-.fxtao-progress-card h2,
-.fxtao-progress-body h2 {
+.fxtao-progress-title,
+.fxtao-progress-card h2.fxtao-progress-title,
+.fxtao-progress-body h2.fxtao-progress-title {
   color: var(--fxtao-progress-text);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: clamp(26px, 4vw, 48px);
@@ -50,7 +51,7 @@
   text-align: center;
 }
 
-.fxtao-progress-card--compact h2 {
+.fxtao-progress-card--compact .fxtao-progress-title {
   font-size: clamp(24px, 3vw, 38px);
   margin-bottom: 22px;
 }

@@ -4,11 +4,6 @@
     const match = String(value || '').trim().match(/^(\d+)px$/i);
     return match ? Number(match[1]) : null;
   };
-  const wrapperClass = (config) => [
-    config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card',
-    config.compact ? 'fxtao-progress-card--compact' : '',
-  ].filter(Boolean).join(' ');
-
   const endpointUrl = (config, refresh) => {
     const params = new URLSearchParams({
       tenant: config.tenant || '',
@@ -119,19 +114,18 @@
     .replace(/'/g, '&#039;');
 
   const renderChart = (element, payload, config) => {
+    const target = element.querySelector('.fxtao-progress-render') || element;
     const items = payload?.data?.items || [];
-    const title = payload?.title || config.title || 'Evolução da Obra';
     const chartType = payload?.chart_type || config.chartType || 'bar';
-    const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(title)}</h2>`;
     const footerMarkup = config.showFooter === false ? '' : renderFooter(config, payload);
 
     if (!items.length) {
-      element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}<p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${footerMarkup}</div>`;
+      target.innerHTML = `<p class="fxtao-progress-empty">Nenhum tópico publicado para esta obra.</p>${footerMarkup}`;
       return;
     }
 
     const body = chartType === 'vertical' ? renderVertical(items) : chartType === 'donut' ? renderDonut(items) : renderBar(items, config);
-    element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}${body}${footerMarkup}</div>`;
+    target.innerHTML = `${body}${footerMarkup}`;
   };
 
   const renderFooter = (config, payload) => {
@@ -155,9 +149,9 @@
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
       renderChart(element, payload, config);
     } catch (error) {
-      const titleMarkup = config.showTitle === false ? '' : `<h2>${escapeHtml(config.title || 'Evolução da Obra')}</h2>`;
+      const target = element.querySelector('.fxtao-progress-render') || element;
       const footerMarkup = config.showFooter === false ? '' : renderFooter(config, null);
-      element.innerHTML = `<div class="${wrapperClass(config)}">${titleMarkup}<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}</div>`;
+      target.innerHTML = `<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}`;
     } finally {
       element.classList.remove('is-loading');
     }

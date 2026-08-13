@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.3.2
+ * Version: 1.3.3
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.3.2'
+            '1.3.3'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.3.2',
+            '1.3.3',
             true
         );
     }
@@ -282,7 +282,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.2',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.3',
             ],
         ]);
 
@@ -384,11 +384,17 @@ final class FXTAO_Progress_Chart_Plugin
             $classes[] = 'fxtao-progress-chart--theme-' . $config['theme'];
         }
 
+        $titleMarkup = $config['showTitle']
+            ? sprintf('<h2 class="fxtao-progress-title">%s</h2>', esc_html($config['title'] ?: 'Evolução da Obra'))
+            : '';
+
         return sprintf(
-            '<div id="%1$s" class="%2$s" data-config="%3$s"><div class="fxtao-progress-loading">Carregando evolução da obra...</div></div>',
+            '<div id="%1$s" class="%2$s" data-config="%3$s"><div class="%4$s">%5$s<div class="fxtao-progress-render"><div class="fxtao-progress-loading">Carregando evolução da obra...</div></div></div></div>',
             esc_attr($elementId),
             esc_attr(implode(' ', $classes)),
-            esc_attr(wp_json_encode($config))
+            esc_attr(wp_json_encode($config)),
+            esc_attr($config['card'] ? 'fxtao-progress-card' . ($config['compact'] ? ' fxtao-progress-card--compact' : '') : 'fxtao-progress-body' . ($config['compact'] ? ' fxtao-progress-card--compact' : '')),
+            $titleMarkup
         );
     }
 
