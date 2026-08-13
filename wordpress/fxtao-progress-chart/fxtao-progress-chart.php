@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.3.3
+ * Version: 1.3.4
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.3.3'
+            '1.3.4'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.3.3',
+            '1.3.4',
             true
         );
     }
@@ -282,7 +282,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.3',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.4',
             ],
         ]);
 

@@ -113,8 +113,37 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
+  const ensureShell = (element, config) => {
+    let container = element.querySelector('.fxtao-progress-card, .fxtao-progress-body');
+    if (!container) {
+      const className = [
+        config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card',
+        config.compact ? 'fxtao-progress-card--compact' : '',
+      ].filter(Boolean).join(' ');
+      const existing = element.innerHTML;
+      element.innerHTML = `<div class="${className}"><div class="fxtao-progress-render">${existing}</div></div>`;
+      container = element.querySelector('.fxtao-progress-card, .fxtao-progress-body');
+    }
+
+    if (config.showTitle !== false && !container.querySelector('.fxtao-progress-title')) {
+      const title = document.createElement('h2');
+      title.className = 'fxtao-progress-title';
+      title.textContent = config.title || 'Evolução da Obra';
+      container.insertBefore(title, container.firstChild);
+    }
+
+    let target = container.querySelector('.fxtao-progress-render');
+    if (!target) {
+      target = document.createElement('div');
+      target.className = 'fxtao-progress-render';
+      container.appendChild(target);
+    }
+
+    return target;
+  };
+
   const renderChart = (element, payload, config) => {
-    const target = element.querySelector('.fxtao-progress-render') || element;
+    const target = ensureShell(element, config);
     const items = payload?.data?.items || [];
     const chartType = payload?.chart_type || config.chartType || 'bar';
     const footerMarkup = config.showFooter === false ? '' : renderFooter(config, payload);
@@ -149,7 +178,7 @@
       if (!response.ok || payload.success === false) throw new Error(payload.message || 'Falha ao carregar dados.');
       renderChart(element, payload, config);
     } catch (error) {
-      const target = element.querySelector('.fxtao-progress-render') || element;
+      const target = ensureShell(element, config);
       const footerMarkup = config.showFooter === false ? '' : renderFooter(config, null);
       target.innerHTML = `<p class="fxtao-progress-error">${escapeHtml(error.message)}</p>${footerMarkup}`;
     } finally {
@@ -162,6 +191,7 @@
     element.dataset.ready = '1';
 
     const config = JSON.parse(element.dataset.config || '{}');
+    ensureShell(element, config);
     loadChart(element, config, true);
 
     element.addEventListener('click', (event) => {
