@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.3.1'
+            '1.3.2'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.3.1',
+            '1.3.2',
             true
         );
     }
@@ -282,7 +282,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.1',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.2',
             ],
         ]);
 
@@ -364,8 +364,7 @@ final class FXTAO_Progress_Chart_Plugin
             'title' => sanitize_text_field($atts['titulo']),
             'refreshMinutes' => max(1, absint($atts['atualizacao_minutos'])),
             'showTitle' => self::booleanAttribute($atts['mostrar_titulo'], true)
-                && self::booleanAttribute($atts['titulo_visivel'], true)
-                && self::booleanAttribute($atts['titulo'], true),
+                && self::booleanAttribute($atts['titulo_visivel'], true),
             'showFooter' => self::booleanAttribute($atts['rodape'], true),
             'showRefreshButton' => self::booleanAttribute($atts['botao'], (bool)$settings['show_refresh_button']),
             'showLink' => self::booleanAttribute($atts['link'], true),

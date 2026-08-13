@@ -12,7 +12,7 @@ Plugin WordPress para exibir a evolução de obra cadastrada no FXTAO SaaS.
 ## Configuração
 
 1. Informe `URL base da API`: `https://fxtao.fx4.com.br/api/public`.
-   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.3.1` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
+   - Se preencher apenas `https://fxtao.fx4.com.br`, a versão `1.3.2` normaliza automaticamente para `https://fxtao.fx4.com.br/api/public`.
    - Não use a URL do portal sem `/api/public` em versões anteriores, pois o WordPress tentará ler HTML como JSON.
 2. Informe o `Slug do cliente`, por exemplo `cinci`.
 3. Informe a `Obra padrão`: ID, ERP, slug público ou nome da obra.
