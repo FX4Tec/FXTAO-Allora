@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FXTAO Progress Chart
  * Description: Exibe a evolução de obra cadastrada no FXTAO SaaS por cliente e obra, com token protegido no servidor.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: FX4 Tecnologia
  * Text Domain: fxtao-progress-chart
  */
@@ -78,14 +78,14 @@ final class FXTAO_Progress_Chart_Plugin
             'fxtao-progress-chart',
             plugins_url('assets/chart.css', __FILE__),
             [],
-            '1.3.0'
+            '1.3.1'
         );
 
         wp_register_script(
             'fxtao-progress-chart',
             plugins_url('assets/chart.js', __FILE__),
             [],
-            '1.3.0',
+            '1.3.1',
             true
         );
     }
@@ -209,8 +209,9 @@ final class FXTAO_Progress_Chart_Plugin
 [fxtao_progress_chart tipo="vertical" atualizacao_minutos="5"]
 [fxtao_progress_chart_grafico cliente="cinci" obra="APARTAMENTO LG" tipo="bar"]
 [fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="true"]
-[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="false" altura="420px"]</pre>
-            <p><strong>Atributos visuais:</strong> <code>compacto</code> reduz espaçamentos, <code>mostrar_zeros</code> controla tópicos com 0%, e <code>altura</code> limita o bloco com rolagem interna.</p>
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" compacto="true" mostrar_zeros="false" altura="420px"]
+[fxtao_progress_chart_grafico cliente="cinci" obra="017" tipo="bar" cartao="true" mostrar_titulo="true" titulo="Evolução da Obra" compacto="true" mostrar_zeros="true" altura="300px" atualizacao_minutos="30"]</pre>
+            <p><strong>Atributos visuais:</strong> <code>compacto</code> reduz espaçamentos, <code>mostrar_zeros</code> controla tópicos com 0%, e <code>altura</code> compacta linhas/fontes para caber no bloco informado.</p>
         </div>
         <?php
     }
@@ -281,7 +282,7 @@ final class FXTAO_Progress_Chart_Plugin
             'headers' => [
                 'Accept' => 'application/json',
                 'Authorization' => 'Bearer ' . $settings['token'],
-                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.0',
+                'User-Agent' => 'FXTAO Progress Chart WordPress Plugin/1.3.1',
             ],
         ]);
 

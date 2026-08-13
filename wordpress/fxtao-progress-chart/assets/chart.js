@@ -1,5 +1,9 @@
 (function () {
   const clamp = (value) => Math.min(100, Math.max(0, Number(value || 0)));
+  const parsePixelHeight = (value) => {
+    const match = String(value || '').trim().match(/^(\d+)px$/i);
+    return match ? Number(match[1]) : null;
+  };
   const wrapperClass = (config) => [
     config.card === false ? 'fxtao-progress-body' : 'fxtao-progress-card',
     config.compact ? 'fxtao-progress-card--compact' : '',
@@ -41,22 +45,37 @@
       return '<p class="fxtao-progress-empty">Nenhum tópico com percentual publicado para esta obra.</p>';
     }
 
-    const heightStyle = config.height && config.height !== 'auto'
-      ? `max-height:${escapeHtml(config.height)};overflow:auto;`
-      : '';
+    const requestedHeight = parsePixelHeight(config.height);
+    const titleReserve = config.showTitle === false ? 0 : 58;
+    const availableHeight = requestedHeight ? Math.max(120, requestedHeight - titleReserve) : null;
+    const rowCount = Math.max(1, visibleItems.length);
+    const dynamicGap = availableHeight ? Math.max(3, Math.min(9, Math.floor(availableHeight / rowCount * 0.16))) : null;
+    const dynamicRowHeight = availableHeight ? Math.max(15, Math.min(28, Math.floor((availableHeight - (rowCount - 1) * dynamicGap) / rowCount))) : null;
+    const dynamicFontSize = dynamicRowHeight ? Math.max(10, Math.min(15, Math.floor(dynamicRowHeight * 0.48))) : null;
+    const heightStyle = [
+      availableHeight ? `height:${availableHeight}px` : '',
+      dynamicRowHeight ? `--fxtao-progress-row-height:${dynamicRowHeight}px` : '',
+      dynamicGap ? `--fxtao-progress-row-gap:${dynamicGap}px` : '',
+      dynamicFontSize ? `--fxtao-progress-font-size:${dynamicFontSize}px` : '',
+    ].filter(Boolean).join(';');
 
     return `
     <div class="fxtao-progress-bars" style="${heightStyle}">
       ${visibleItems.map((item) => {
         const percent = clamp(item.percentage);
         const percentLabel = `${percent}%`;
-        const rowClass = percent === 0 ? ' fxtao-progress-row--zero' : '';
+        const rowClass = [
+          percent === 0 ? 'fxtao-progress-row--zero' : '',
+          percent > 0 && percent < 12 ? 'fxtao-progress-row--low' : '',
+        ].filter(Boolean).join(' ');
         return `
-          <div class="fxtao-progress-row${rowClass}">
+          <div class="fxtao-progress-row${rowClass ? ` ${rowClass}` : ''}">
             <div class="fxtao-progress-label" title="${escapeHtml(item.topic)}">${escapeHtml(item.topic)}</div>
             <div class="fxtao-progress-track" role="img" aria-label="${escapeHtml(item.topic)}: ${percentLabel}">
-              <div class="fxtao-progress-fill" style="width:${percent}%"></div>
-              <span class="fxtao-progress-value">${percentLabel}</span>
+              <div class="fxtao-progress-fill" style="width:${percent}%">
+                <span class="fxtao-progress-value fxtao-progress-value--inside">${percentLabel}</span>
+              </div>
+              <span class="fxtao-progress-value fxtao-progress-value--outside">${percentLabel}</span>
             </div>
           </div>
         `;

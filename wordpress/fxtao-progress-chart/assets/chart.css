@@ -4,6 +4,9 @@
   --fxtao-progress-text: #1f2933;
   --fxtao-progress-muted: #667085;
   --fxtao-progress-grid: rgba(17, 24, 39, 0.08);
+  --fxtao-progress-font-size: 15px;
+  --fxtao-progress-row-gap: 9px;
+  --fxtao-progress-row-height: 28px;
   color: var(--fxtao-progress-text);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
   max-width: 100%;
@@ -54,7 +57,7 @@
 
 .fxtao-progress-bars {
   display: grid;
-  gap: 9px;
+  gap: var(--fxtao-progress-row-gap);
   margin: 0 auto;
   max-width: 1180px;
   padding: 4px 0;
@@ -65,13 +68,13 @@
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(150px, 240px) minmax(0, 1fr);
-  min-height: 28px;
+  min-height: var(--fxtao-progress-row-height);
 }
 
 .fxtao-progress-label {
   color: var(--fxtao-progress-text);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: clamp(13px, 1vw, 15px);
+  font-size: var(--fxtao-progress-font-size);
   font-weight: 600;
   line-height: 1.2;
   overflow: hidden;
@@ -88,7 +91,7 @@
   background-repeat: repeat, no-repeat;
   border-left: 1px solid rgba(17, 24, 39, 0.40);
   border-radius: 0 7px 7px 0;
-  height: 28px;
+  height: var(--fxtao-progress-row-height);
   min-width: 0;
   position: relative;
 }
@@ -98,18 +101,42 @@
   border-radius: 0 6px 6px 0;
   height: 100%;
   min-width: 0;
+  position: relative;
 }
 
 .fxtao-progress-value {
-  color: rgba(255, 255, 255, 0.92);
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 13px;
+  font-size: max(10px, calc(var(--fxtao-progress-font-size) - 1px));
   font-weight: 700;
   line-height: 1;
   position: absolute;
-  right: 8px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.fxtao-progress-value--inside {
+  color: rgba(255, 255, 255, 0.94);
+  right: 8px;
+}
+
+.fxtao-progress-value--outside {
+  color: var(--fxtao-progress-text);
+  display: none;
+  left: calc(100% + 6px);
+  white-space: nowrap;
+}
+
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:0"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:1"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:2"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:3"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:4"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:5"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:6"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:7"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:8"],
+.fxtao-progress-row:not(.fxtao-progress-row--zero) .fxtao-progress-fill[style^="width:9"] {
+  min-width: 2px;
 }
 
 .fxtao-progress-row--zero .fxtao-progress-track {
@@ -128,6 +155,22 @@
   color: var(--fxtao-progress-muted);
   left: 8px;
   right: auto;
+}
+
+.fxtao-progress-row--low .fxtao-progress-value--inside,
+.fxtao-progress-row--zero .fxtao-progress-value--inside {
+  display: none;
+}
+
+.fxtao-progress-row--low .fxtao-progress-value--outside,
+.fxtao-progress-row--zero .fxtao-progress-value--outside {
+  display: block;
+  left: 8px;
+}
+
+.fxtao-progress-row--low .fxtao-progress-value--outside {
+  color: var(--fxtao-progress-text);
+  left: calc(max(2%, var(--fxtao-progress-row-height)) + 6px);
 }
 
 .fxtao-progress-vertical {
